@@ -93,9 +93,8 @@ export const ReportService = {
       const res = await fetch(`/api/items?${params.toString()}`, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
-        if (data.items && Array.isArray(data.items) && data.items.length > 0) {
+        if (data.items && Array.isArray(data.items)) {
           const mapped = data.items.map(mapDbItemToReport);
-          // Sync with localStore for offline readiness
           mapped.forEach((rep: ItemReport) => saveReport(rep));
           return mapped;
         }
@@ -300,7 +299,7 @@ export const MatchingService = {
       const res = await fetch(`/api/matches${params}`);
       if (res.ok) {
         const data = await res.json();
-        if (data.matches && data.matches.length > 0) {
+        if (data.matches && Array.isArray(data.matches)) {
           return data.matches.map((m: any) => ({
             id: m.id,
             lostReportId: m.lostItem.id,
@@ -358,7 +357,7 @@ export const ClaimService = {
       const res = await fetch(`/api/claims?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
-        if (data.claims && Array.isArray(data.claims) && data.claims.length > 0) {
+        if (data.claims && Array.isArray(data.claims)) {
           const mapped: ClaimRequest[] = data.claims.map((c: any) => ({
             id: c.id,
             referenceNumber: c.itemReportNumber || `CLM-${c.id.slice(0, 8)}`,
@@ -425,7 +424,99 @@ export const ClaimService = {
   },
 
   async getClaimById(id: string): Promise<ClaimRequest | null> {
-    const all = await this.getClaims();
+    try {
+      const res = await fetch(`/api/claims/${id}`, { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.claim) {
+          const c = data.claim;
+          const statusMap: Record<string, ClaimStatus> = {
+            PENDING: 'pending',
+            UNDER_REVIEW: 'under_review',
+            APPROVED: 'approved',
+            HANDOVER_PENDING: 'approved',
+            RETURNED: 'completed',
+            COMPLETED: 'completed',
+            REJECTED: 'rejected',
+            CANCELLED: 'rejected',
+            DISPUTED: 'under_review',
+          };
+
+          const claimReq: ClaimRequest = {
+            id: c.id,
+            referenceNumber: c.referenceNumber,
+            reportId: c.itemId,
+            report: {
+              id: c.itemId,
+              referenceNumber: c.itemReportNumber,
+              type: 'found',
+              title: c.itemTitle,
+              category: (c.itemCategory?.toLowerCase() || 'other') as ItemCategory,
+              color: 'Various',
+              publicDescription: '',
+              collegeId: c.collegeId,
+              campusId: '',
+              locationBuilding: c.campusName || 'Campus',
+              dateOccurred: c.createdAt.split('T')[0],
+              images: c.itemImageUrl ? [c.itemImageUrl] : [],
+              reporterId: c.reporterId,
+              reporterName: c.reporterName,
+              reporterEmail: 'custodian@university.edu',
+              status: c.status === 'RETURNED' ? 'returned' : 'pending_claim',
+              moderationStatus: 'approved',
+              viewsCount: 1,
+              createdAt: c.createdAt,
+              updatedAt: c.updatedAt,
+            },
+            claimantId: c.claimantId,
+            claimantName: c.claimantName,
+            claimantEmail: c.claimantEmail,
+            finderId: c.reporterId,
+            finderName: c.reporterName,
+            collegeId: c.collegeId,
+            campusId: '',
+            answers: Array.isArray(c.evidenceDetails?.answers) ? c.evidenceDetails.answers : [],
+            additionalProofNotes: c.additionalProofNotes,
+            status: statusMap[c.status] || 'pending',
+            handover: c.handoverChallenge
+              ? {
+                  handoverLocation: c.handoverChallenge.handoverLocation || 'Campus Lost & Found Office',
+                  secretVerificationCode: c.handoverCode || '******',
+                  claimantConfirmed: Boolean(c.handoverChallenge.confirmedAt),
+                  finderConfirmed: Boolean(c.handoverChallenge.confirmedAt),
+                  completedAt: c.handoverChallenge.confirmedAt,
+                }
+              : undefined,
+            timeline: Array.isArray(c.statusHistory) && c.statusHistory.length > 0
+              ? c.statusHistory.map((h: any) => ({
+                  id: h.id,
+                  timestamp: h.createdAt,
+                  actorName: h.actorName,
+                  actorRole: 'campus_admin',
+                  action: `Status transitioned to ${h.toStatus}`,
+                  notes: h.notes,
+                }))
+              : [
+                  {
+                    id: `tl-${c.id}`,
+                    timestamp: c.createdAt,
+                    actorName: c.claimantName,
+                    actorRole: 'claimant',
+                    action: 'Claim submitted with verification evidence',
+                  },
+                ],
+            createdAt: c.createdAt,
+            updatedAt: c.updatedAt,
+          };
+          saveClaim(claimReq);
+          return claimReq;
+        }
+      }
+    } catch {
+      // Fallback
+    }
+
+    const all = getStoredClaims();
     return all.find((c) => c.id === id) || null;
   },
 
@@ -521,6 +612,36 @@ export const ClaimService = {
     role: 'claimant' | 'finder' | 'admin',
     verificationCodeInput?: string
   ): Promise<{ success: boolean; message: string; claim?: ClaimRequest }> {
+    try {
+      // First ensure a challenge exists
+      await fetch('/api/handovers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ claimId }),
+      });
+
+      const res = await fetch(`/api/handovers/${claimId}/confirm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: verificationCodeInput,
+          moderatorOverride: role === 'admin',
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const updated = await this.getClaimById(claimId);
+        return {
+          success: true,
+          message: data.message || 'Handover successfully verified.',
+          claim: updated || undefined,
+        };
+      }
+    } catch (e) {
+      console.warn('Backend handover confirmation error, falling back locally:', e);
+    }
+
     const claim = await this.getClaimById(claimId);
     if (!claim || !claim.handover) {
       return { success: false, message: 'Handover details not found.' };
@@ -554,23 +675,136 @@ export const ClaimService = {
  */
 export const MessageService = {
   async getConversations(userId: string): Promise<Conversation[]> {
+    try {
+      const res = await fetch('/api/conversations', { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.conversations && Array.isArray(data.conversations)) {
+          return data.conversations.map((c: any) => ({
+            id: c.id,
+            reportId: c.itemId,
+            claimId: c.claimId,
+            itemTitle: c.item?.name || c.title || 'Inquiry',
+            itemReference: c.item?.reportNumber || (c.claim ? c.claim.referenceNumber : 'INQ'),
+            participants: (c.participants || []).map((p: any) => ({
+              id: p.id,
+              name: p.name,
+              role: p.role?.toLowerCase() || 'student',
+            })),
+            lastMessage: c.latestMessage?.content || '',
+            lastMessageTimestamp: c.latestMessage?.createdAt || c.updatedAt,
+            unreadCount: c.unreadCount || 0,
+            isBlocked: false,
+          }));
+        }
+      }
+    } catch {
+      // Fallback
+    }
+
     const all = getStoredConversations();
     return all.filter((conv) => conv.participants.some((p) => p.id === userId));
   },
 
   async getMessages(conversationId: string): Promise<Message[]> {
+    try {
+      const res = await fetch(`/api/conversations/${conversationId}/messages`, { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.messages && Array.isArray(data.messages)) {
+          return data.messages.map((m: any) => ({
+            id: m.id,
+            conversationId: m.conversationId,
+            senderId: m.senderId,
+            senderName: m.senderName,
+            senderRole: m.senderRole?.toLowerCase() === 'student' ? 'student' : 'admin',
+            content: m.content,
+            createdAt: m.createdAt,
+            isRead: !m.isSender,
+          }));
+        }
+      }
+    } catch {
+      // Fallback
+    }
+
     const all = getStoredMessages();
     return all.filter((m) => m.conversationId === conversationId);
   },
 
   async sendMessage(message: Message): Promise<Message> {
+    try {
+      const res = await fetch(`/api/conversations/${message.conversationId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: message.content }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.data) {
+          return {
+            id: data.data.id,
+            conversationId: data.data.conversationId,
+            senderId: data.data.senderId,
+            senderName: data.data.senderName,
+            senderRole: data.data.senderRole?.toLowerCase() === 'student' ? 'student' : 'admin',
+            content: data.data.content,
+            createdAt: data.data.createdAt,
+            isRead: false,
+          };
+        }
+      }
+    } catch {
+      // Fallback
+    }
+
     saveMessage(message);
     return message;
   },
 
   async createConversation(conv: Conversation): Promise<Conversation> {
+    try {
+      const otherParticipant = conv.participants[0]?.id;
+      if (otherParticipant) {
+        const res = await fetch('/api/conversations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            recipientId: otherParticipant,
+            claimId: conv.claimId,
+            itemId: conv.reportId,
+            initialMessage: conv.lastMessage,
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.conversation) {
+            conv.id = data.conversation.id;
+          }
+        }
+      }
+    } catch {
+      // Fallback
+    }
+
     createConversation(conv);
     return conv;
+  },
+
+  async markAsRead(conversationId: string): Promise<void> {
+    try {
+      await fetch(`/api/conversations/${conversationId}/read`, { method: 'POST' });
+    } catch {}
+  },
+
+  async reportMessage(messageId: string, reason: string): Promise<void> {
+    try {
+      await fetch(`/api/messages/${messageId}/report`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason }),
+      });
+    } catch {}
   },
 };
 
@@ -583,7 +817,7 @@ export const NotificationService = {
       const res = await fetch('/api/notifications');
       if (res.ok) {
         const data = await res.json();
-        if (data.notifications && data.notifications.length > 0) {
+        if (data.notifications && Array.isArray(data.notifications)) {
           return data.notifications.map((n: any) => ({
             id: n.id,
             userId,

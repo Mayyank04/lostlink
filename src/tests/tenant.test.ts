@@ -99,3 +99,4 @@ describe('Multi-Tenant Cross-College Authorization', () => {
     expect(() => requirePlatformAdmin(collegeAdminUser)).toThrow(AuthError);
   });
 });
+

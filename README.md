@@ -267,18 +267,23 @@ All seeded accounts use password: `Password123!`
 
 ---
 
-## 9. Automated Testing & Verification
+## 9. Automated Testing & Verification (54 / 54 Passing Tests)
 
 The test suite covers:
-- **`src/tests/db.test.ts`:** Database connectivity, unique constraints on emails, cascade deletion, private evidence isolation.
 - **`src/tests/auth.test.ts`:** Argon2id password hashing, verification, sliding-window rate limiting.
+- **`src/tests/db.test.ts`:** Database connectivity, unique constraints on emails, cascade deletion, private evidence isolation.
 - **`src/tests/tenant.test.ts`:** Multi-college authorization, cross-college write rejection, admin privileges.
 - **`src/tests/storage.test.ts`:** MIME allowlists, 10MB limits, filename traversal sanitization.
-- **`src/lib/matching/engine.test.ts`:** 100-point deterministic match scoring and date penalties.
+- **`src/tests/matching.test.ts`:** 100-point explainable matching engine, model number conflicts, synonyms, color aliases, chronology.
+- **`src/tests/claims.test.ts`:** Ownership claims state machine, anti-self-claim protection, evidence requests, cancellation, status history.
+- **`src/tests/handover.test.ts`:** Cryptographic 6-digit OTP, SHA-256 tokens, timing-safe verification, expiration checks.
+- **`src/tests/messaging.test.ts`:** PostgreSQL conversations, message sending, unread counters, access control, abuse reporting.
+- **`src/tests/e2e-recovery.test.ts`:** **Full 11-step end-to-end recovery lifecycle (Report $\to$ Match $\to$ Claim $\to$ Evidence $\to$ Approval $\to$ Handover $\to$ Return).**
+- **`src/lib/matching/engine.test.ts`:** Deterministic matching edge cases.
 
 Execute tests via:
 ```bash
-npm test          # Run Vitest test suite
+npm test          # Run Vitest test suite (10 test suites, 54 tests)
 npm run typecheck # Verify zero TypeScript errors
 npm run build     # Verify full Next.js production build
 ```
@@ -315,5 +320,5 @@ readinessProbe:
 ## 11. Git Feature Branch & Submission
 
 - **Repository:** `https://github.com/Mayyank04/lostlink`
-- **Phase 2 Feature Branch:** `phase-2-backend`
+- **Phase 3 Feature Branch:** `phase-3-recovery`
 - **Main Branch:** `main`

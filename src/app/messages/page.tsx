@@ -53,6 +53,7 @@ export default function MessagesPage() {
     if (!selectedConvId) return;
     MessageService.getMessages(selectedConvId).then((msgs) => {
       setMessages(msgs);
+      MessageService.markAsRead(selectedConvId);
     });
   }, [selectedConvId]);
 
@@ -83,7 +84,11 @@ export default function MessagesPage() {
     info('User Blocked', 'You will no longer receive direct messages in this thread.');
   };
 
-  const handleReport = () => {
+  const handleReport = async () => {
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg) {
+      await MessageService.reportMessage(lastMsg.id, 'Reported by participant for moderation review');
+    }
     success('Conversation Reported', 'Campus dispatch has received a transcript copy for review.');
   };
 

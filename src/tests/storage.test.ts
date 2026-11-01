@@ -59,3 +59,4 @@ describe('Object Storage Security & Uploads', () => {
     expect(result.key).toContain('secret_config.jpg');
   });
 });
+

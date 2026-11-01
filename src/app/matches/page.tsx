@@ -31,13 +31,31 @@ export default function MatchesPage() {
     }
   };
 
+  const handleRecalculate = async () => {
+    setIsLoading(true);
+    try {
+      await fetch(`/api/matches/recalculate?collegeId=${activeCollege.id}`, { method: 'POST' });
+      success('Radar Refreshed', 'Candidate pairs re-evaluated against latest active reports.');
+      await fetchMatches();
+    } catch {
+      await fetchMatches();
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchMatches();
   }, [activeCollege.id]);
 
-  const handleDismiss = (matchId: string) => {
+  const handleDismiss = async (matchId: string) => {
     setDismissedIds((prev) => new Set([...Array.from(prev), matchId]));
     info('Match Dismissed', 'This pair has been hidden from your active radar view.');
+    try {
+      await fetch(`/api/matches/${matchId}/dismiss`, { method: 'POST' });
+    } catch (e) {
+      console.warn('Failed to persist dismissal:', e);
+    }
   };
 
   const activeMatches = matches.filter(
@@ -79,7 +97,7 @@ export default function MatchesPage() {
           <Button
             size="sm"
             variant="outline"
-            onClick={fetchMatches}
+            onClick={handleRecalculate}
             className="text-xs"
             title="Recalculate Radar"
           >

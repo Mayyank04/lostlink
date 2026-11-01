@@ -1,7 +1,60 @@
 import { prisma } from '@/lib/db';
 import { Item, ItemReportType, ItemStatus } from '@prisma/client';
 
-export interface ScoreDetail {
+// ------------------------------------------------------------------------------
+// CENTRALIZED CONFIGURABLE MATCHING WEIGHTS & THRESHOLDS (PART 2.1 & 2.3)
+// ------------------------------------------------------------------------------
+
+export const MATCH_CONFIG = {
+  RULE_VERSION: 2,
+  WEIGHTS: {
+    CATEGORY: 25,
+    NAME_SIMILARITY: 25,
+    COLOR: 15,
+    BRAND: 10,
+    LOCATION: 15,
+    CHRONOLOGY: 10,
+  },
+  THRESHOLDS: {
+    STRONG_MATCH: 80,
+    POSSIBLE_MATCH: 60,
+    MINIMUM_PERSISTENCE: 55, // Only persist matches with score >= 55
+  },
+} as const;
+
+// Standardized synonym dictionary for equipment, accessories, and campus items
+const SYNONYM_GROUPS: string[][] = [
+  ['earbuds', 'earphones', 'wireless earphones', 'airpods', 'headphones', 'headset', 'buds'],
+  ['laptop', 'macbook', 'notebook', 'thinkpad', 'chromebook', 'ultrabook'],
+  ['phone', 'smartphone', 'iphone', 'galaxy', 'cellphone', 'mobile'],
+  ['water bottle', 'bottle', 'flask', 'tumbler', 'hydroflask', 'thermos'],
+  ['backpack', 'bag', 'rucksack', 'bookbag', 'knapsack', 'tote'],
+  ['id card', 'student id', 'campus card', 'badge', 'keycard', 'student card', 'access card'],
+  ['wallet', 'purse', 'billfold', 'cardholder', 'pouch'],
+  ['charger', 'adapter', 'charging cable', 'power bank', 'magsafe', 'cord'],
+  ['keys', 'keychain', 'car key', 'dorm key', 'room key', 'lanyard'],
+  ['glasses', 'sunglasses', 'spectacles', 'eyewear', 'shades', 'frames'],
+  ['watch', 'smartwatch', 'apple watch', 'fitbit', 'timepiece'],
+  ['jacket', 'hoodie', 'coat', 'sweater', 'sweatshirt', 'fleece', 'windbreaker'],
+  ['umbrella', 'parasol', 'rain umbrella'],
+  ['calculator', 'scientific calculator', 'graphing calculator', 'ti84'],
+];
+
+// Color alias mappings
+const COLOR_ALIASES: Record<string, string[]> = {
+  black: ['charcoal', 'midnight', 'jet', 'dark grey', 'matte black', 'obsidian'],
+  blue: ['navy', 'cyan', 'royal blue', 'sky blue', 'indigo', 'azure', 'teal', 'cobalt'],
+  grey: ['gray', 'silver', 'space gray', 'space grey', 'titanium', 'ash', 'slate'],
+  white: ['ivory', 'pearl', 'cream', 'chalk', 'starlight'],
+  red: ['crimson', 'maroon', 'burgundy', 'scarlet', 'ruby'],
+  green: ['olive', 'emerald', 'forest green', 'sage', 'mint'],
+  brown: ['tan', 'khaki', 'beige', 'bronze', 'camel', 'chocolate'],
+  purple: ['violet', 'lavender', 'magenta', 'plum'],
+  yellow: ['gold', 'mustard', 'amber'],
+  pink: ['rose', 'coral', 'blush', 'salmon'],
+};
+
+export interface AttributeScoreBreakdown {
   name: string;
   score: number;
   maxScore: number;
@@ -9,235 +62,440 @@ export interface ScoreDetail {
   explanation: string;
 }
 
-export interface MatchEvaluation {
+export interface MatchScoringResult {
   totalScore: number;
-  confidenceTier: 'high' | 'medium' | 'low';
+  confidenceTier: 'strong' | 'possible' | 'low';
+  eligible: boolean;
+  ineligibilityReason?: string;
   breakdown: {
-    category: ScoreDetail;
-    nameSimilarity: ScoreDetail;
-    color: ScoreDetail;
-    brand: ScoreDetail;
-    location: ScoreDetail;
-    timePlausibility: ScoreDetail;
+    category: AttributeScoreBreakdown;
+    nameSimilarity: AttributeScoreBreakdown;
+    color: AttributeScoreBreakdown;
+    brand: AttributeScoreBreakdown;
+    location: AttributeScoreBreakdown;
+    chronology: AttributeScoreBreakdown;
   };
   matchingAttributes: string[];
   differingAttributes: string[];
+  safeExplanation: string;
 }
 
-function calculateWordOverlap(strA: string, strB: string): number {
-  const tokenize = (s: string) =>
-    new Set(
-      s
-        .toLowerCase()
-        .replace(/[^a-z0-9\s]/g, '')
-        .split(/\s+/)
-        .filter((w) => w.length > 2)
-    );
+// ------------------------------------------------------------------------------
+// DETERMINISTIC STRING NORMALIZATION & TOKENIZATION
+// ------------------------------------------------------------------------------
 
-  const setA = tokenize(strA);
-  const setB = tokenize(strB);
+export function cleanText(input: string): string {
+  return input
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
-  if (setA.size === 0 || setB.size === 0) return 0;
+export function extractTokens(input: string): string[] {
+  const STOPWORDS = new Set([
+    'a', 'an', 'the', 'and', 'or', 'in', 'on', 'at', 'with', 'by', 'for',
+    'my', 'lost', 'found', 'item', 'belonging', 'near', 'inside', 'around',
+  ]);
+  return cleanText(input)
+    .split(' ')
+    .filter((w) => w.length > 1 && !STOPWORDS.has(w));
+}
 
-  let intersection = 0;
-  for (const item of setA) {
-    if (setB.has(item)) intersection++;
+/**
+ * Checks if two words/phrases are known aliases or synonyms
+ */
+export function areSynonyms(wordA: string, wordB: string): boolean {
+  if (wordA === wordB) return true;
+  for (const group of SYNONYM_GROUPS) {
+    const hasA = group.some((s) => s.includes(wordA) || wordA.includes(s));
+    const hasB = group.some((s) => s.includes(wordB) || wordB.includes(s));
+    if (hasA && hasB) return true;
+  }
+  return false;
+}
+
+/**
+ * Checks if colors match directly or via standard color alias families
+ */
+export function colorsMatch(colorA?: string | null, colorB?: string | null): boolean {
+  if (!colorA || !colorB) return false;
+  const a = cleanText(colorA);
+  const b = cleanText(colorB);
+
+  if (a === b || a.includes(b) || b.includes(a)) return true;
+
+  for (const [canonical, aliases] of Object.entries(COLOR_ALIASES)) {
+    const matchesA = a === canonical || aliases.some((al) => a.includes(al));
+    const matchesB = b === canonical || aliases.some((al) => b.includes(al));
+    if (matchesA && matchesB) return true;
   }
 
-  const union = new Set([...setA, ...setB]).size;
-  return union === 0 ? 0 : intersection / union;
+  return false;
 }
 
-export function evaluateItemMatch(lostItem: Item, foundItem: Item): MatchEvaluation {
-  let totalScore = 0;
+/**
+ * Ensures distinct product models (e.g. iPhone 15 vs iPhone 16) are not falsely equated
+ */
+export function extractModelNumbers(text: string): string[] {
+  const matches = text.match(/\b\d+([a-z]?)\b/gi);
+  return matches ? matches.map((m) => m.toLowerCase()) : [];
+}
+
+/**
+ * Calculates deterministic name similarity using token overlap, synonym awareness,
+ * and distinct model number mismatch detection.
+ */
+export function calculateNameSimilarity(nameA: string, nameB: string, descA = '', descB = ''): {
+  score: number;
+  matched: boolean;
+  explanation: string;
+} {
+  const tokensA = extractTokens(nameA);
+  const tokensB = extractTokens(nameB);
+
+  if (tokensA.length === 0 || tokensB.length === 0) {
+    return { score: 0, matched: false, explanation: 'Insufficient item title details provided.' };
+  }
+
+  // Model number conflict check: e.g. "iPhone 15" vs "iPhone 16"
+  const modelsA = extractModelNumbers(nameA);
+  const modelsB = extractModelNumbers(nameB);
+  const hasDistinctModelConflict =
+    modelsA.length > 0 &&
+    modelsB.length > 0 &&
+    !modelsA.some((m) => modelsB.includes(m));
+
+  if (hasDistinctModelConflict) {
+    return {
+      score: 0,
+      matched: false,
+      explanation: `Differing model generation numbers detected ("${modelsA.join(', ')}" vs "${modelsB.join(', ')}").`,
+    };
+  }
+
+  let matchedTokens = 0;
+  for (const tA of tokensA) {
+    const hasMatch = tokensB.some((tB) => areSynonyms(tA, tB));
+    if (hasMatch) {
+      matchedTokens++;
+    }
+  }
+
+  const unionSize = new Set([...tokensA, ...tokensB]).size;
+  let overlapRatio = unionSize > 0 ? matchedTokens / unionSize : 0;
+
+  // Secondary check: description keyword boost
+  const descTokensA = extractTokens(descA);
+  const descTokensB = extractTokens(descB);
+  let descBonus = 0;
+  for (const dtA of descTokensA) {
+    if (descTokensB.some((dtB) => areSynonyms(dtA, dtB))) {
+      descBonus += 0.05;
+    }
+  }
+
+  const finalRatio = Math.min(1, overlapRatio + descBonus);
+  const score = Math.round(finalRatio * MATCH_CONFIG.WEIGHTS.NAME_SIMILARITY);
+
+  return {
+    score,
+    matched: score >= 12,
+    explanation:
+      score >= 18
+        ? 'High keyword and terminology similarity between item names.'
+        : score >= 12
+        ? 'Partial keyword match or related product terms detected.'
+        : 'Low text similarity between reported item names.',
+  };
+}
+
+// ------------------------------------------------------------------------------
+// COMPREHENSIVE MATCH EVALUATION ENGINE (PART 2.1, 2.2, 2.3)
+// ------------------------------------------------------------------------------
+
+export function evaluateItemMatch(lostItem: Item, foundItem: Item): MatchScoringResult {
+  // Eligibility Check (Part 2.2)
+  if (lostItem.type !== ItemReportType.LOST || foundItem.type !== ItemReportType.FOUND) {
+    return {
+      totalScore: 0,
+      confidenceTier: 'low',
+      eligible: false,
+      ineligibilityReason: 'Matches can only be evaluated between a LOST report and a FOUND report.',
+      breakdown: {} as any,
+      matchingAttributes: [],
+      differingAttributes: [],
+      safeExplanation: 'Ineligible pair comparison.',
+    };
+  }
+
+  // Prevent self-match abuse if reported by same student
+  if (lostItem.reporterId === foundItem.reporterId) {
+    return {
+      totalScore: 0,
+      confidenceTier: 'low',
+      eligible: false,
+      ineligibilityReason: 'Cannot match reports submitted by the same user account.',
+      breakdown: {} as any,
+      matchingAttributes: [],
+      differingAttributes: [],
+      safeExplanation: 'Self-reporting match excluded.',
+    };
+  }
+
   const matchingAttributes: string[] = [];
   const differingAttributes: string[] = [];
+  let totalScore = 0;
 
-  // 1. Category (30 pts)
+  // 1. Category (Max 25 pts)
+  const normCatLost = cleanText(lostItem.category);
+  const normCatFound = cleanText(foundItem.category);
   const categoryMatched =
-    lostItem.category.trim().toLowerCase() === foundItem.category.trim().toLowerCase();
-  const categoryScore = categoryMatched ? 30 : 0;
+    normCatLost === normCatFound || areSynonyms(normCatLost, normCatFound);
+  const categoryScore = categoryMatched ? MATCH_CONFIG.WEIGHTS.CATEGORY : 0;
   totalScore += categoryScore;
+
   if (categoryMatched) {
     matchingAttributes.push('Category');
   } else {
     differingAttributes.push('Category');
   }
 
-  // 2. Name / Description Similarity (25 pts)
-  const titleOverlap = calculateWordOverlap(lostItem.name, foundItem.name);
-  const descOverlap = calculateWordOverlap(
-    lostItem.description || '',
-    foundItem.description || ''
+  // If categories are completely unrelated, cap similarity strictly
+  const categoryBreakdown: AttributeScoreBreakdown = {
+    name: 'Item Category',
+    score: categoryScore,
+    maxScore: MATCH_CONFIG.WEIGHTS.CATEGORY,
+    matched: categoryMatched,
+    explanation: categoryMatched
+      ? `Identical or compatible category: "${lostItem.category}".`
+      : `Different categories: "${lostItem.category}" vs "${foundItem.category}".`,
+  };
+
+  // 2. Name Similarity (Max 25 pts)
+  const nameResult = calculateNameSimilarity(
+    lostItem.name,
+    foundItem.name,
+    lostItem.description,
+    foundItem.description
   );
-  const combinedOverlap = Math.max(titleOverlap, (titleOverlap + descOverlap) / 2);
-  const nameScore = Math.round(combinedOverlap * 25);
-  totalScore += nameScore;
-  if (nameScore >= 12) {
+  totalScore += nameResult.score;
+  if (nameResult.matched) {
     matchingAttributes.push('Item Name');
-  }
-
-  // 3. Brand Match (15 pts)
-  let brandScore = 0;
-  let brandMatched = false;
-  let brandExplanation = 'Brand not specified on one or both items.';
-
-  if (lostItem.brand && foundItem.brand) {
-    if (lostItem.brand.trim().toLowerCase() === foundItem.brand.trim().toLowerCase()) {
-      brandScore = 15;
-      brandMatched = true;
-      brandExplanation = `Exact brand match: ${lostItem.brand}`;
-      matchingAttributes.push('Brand');
-    } else {
-      brandScore = 0;
-      brandMatched = false;
-      brandExplanation = `Brands differ: "${lostItem.brand}" vs "${foundItem.brand}"`;
-      differingAttributes.push('Brand');
-    }
   } else {
-    brandScore = 5;
-    brandExplanation = 'Brand omitted in one report; neutral attribution applied.';
+    differingAttributes.push('Item Name');
   }
-  totalScore += brandScore;
 
-  // 4. Color Match (15 pts)
+  const nameBreakdown: AttributeScoreBreakdown = {
+    name: 'Item Name & Keywords',
+    score: nameResult.score,
+    maxScore: MATCH_CONFIG.WEIGHTS.NAME_SIMILARITY,
+    matched: nameResult.matched,
+    explanation: nameResult.explanation,
+  };
+
+  // 3. Color (Max 15 pts)
   let colorScore = 0;
   let colorMatched = false;
-  let colorExplanation = 'Color not specified.';
+  let colorExplanation = 'No color specified in one or both reports.';
 
   if (lostItem.color && foundItem.color) {
-    if (lostItem.color.trim().toLowerCase() === foundItem.color.trim().toLowerCase()) {
-      colorScore = 15;
+    if (colorsMatch(lostItem.color, foundItem.color)) {
+      colorScore = MATCH_CONFIG.WEIGHTS.COLOR;
       colorMatched = true;
-      colorExplanation = `Matching color: ${lostItem.color}`;
+      colorExplanation = `Matching or compatible color profile: "${lostItem.color}".`;
       matchingAttributes.push('Color');
     } else {
       colorScore = 0;
       colorMatched = false;
-      colorExplanation = `Different colors reported: "${lostItem.color}" vs "${foundItem.color}"`;
+      colorExplanation = `Different colors reported: "${lostItem.color}" vs "${foundItem.color}".`;
       differingAttributes.push('Color');
     }
   }
   totalScore += colorScore;
 
-  // 5. Location Proximity (10 pts)
+  const colorBreakdown: AttributeScoreBreakdown = {
+    name: 'Color Profile',
+    score: colorScore,
+    maxScore: MATCH_CONFIG.WEIGHTS.COLOR,
+    matched: colorMatched,
+    explanation: colorExplanation,
+  };
+
+  // 4. Brand / Manufacturer (Max 10 pts)
+  let brandScore = 0;
+  let brandMatched = false;
+  let brandExplanation = 'Brand not specified on one or both items.';
+
+  if (lostItem.brand && foundItem.brand) {
+    const brandA = cleanText(lostItem.brand);
+    const brandB = cleanText(foundItem.brand);
+    if (brandA === brandB || brandA.includes(brandB) || brandB.includes(brandA)) {
+      brandScore = MATCH_CONFIG.WEIGHTS.BRAND;
+      brandMatched = true;
+      brandExplanation = `Exact brand match: ${lostItem.brand}.`;
+      matchingAttributes.push('Brand');
+    } else {
+      brandScore = 0;
+      brandMatched = false;
+      brandExplanation = `Differing brands: "${lostItem.brand}" vs "${foundItem.brand}".`;
+      differingAttributes.push('Brand');
+    }
+  } else {
+    // Missing brand contributes 0 points (no assumption per Part 2.2)
+    brandScore = 0;
+    brandExplanation = 'Brand was omitted; neutral zero contribution applied.';
+  }
+  totalScore += brandScore;
+
+  const brandBreakdown: AttributeScoreBreakdown = {
+    name: 'Brand & Manufacturer',
+    score: brandScore,
+    maxScore: MATCH_CONFIG.WEIGHTS.BRAND,
+    matched: brandMatched,
+    explanation: brandExplanation,
+  };
+
+  // 5. Campus Location (Max 15 pts)
   let locationScore = 0;
   let locationMatched = false;
-  let locationExplanation = 'Different colleges or locations';
+  let locationExplanation = 'Reported in different institutions or locations.';
 
   if (lostItem.collegeId === foundItem.collegeId) {
-    locationScore += 5;
     if (lostItem.campusId === foundItem.campusId) {
-      locationScore += 5;
-      locationMatched = true;
-      locationExplanation = 'Reported on the exact same campus.';
-      matchingAttributes.push('Campus Location');
+      // Check building similarity
+      const bldgA = cleanText(lostItem.locationBuilding);
+      const bldgB = cleanText(foundItem.locationBuilding);
+      if (bldgA === bldgB || bldgA.includes(bldgB) || bldgB.includes(bldgA)) {
+        locationScore = MATCH_CONFIG.WEIGHTS.LOCATION; // 15 pts
+        locationMatched = true;
+        locationExplanation = `Reported in the exact same facility: "${lostItem.locationBuilding}".`;
+        matchingAttributes.push('Building Facility');
+      } else {
+        locationScore = 10; // 10 pts for same campus
+        locationMatched = true;
+        locationExplanation = `Reported on the same campus branch, nearby facilities.`;
+        matchingAttributes.push('Campus Quad');
+      }
     } else {
-      locationExplanation = 'Reported within the same institution.';
-      matchingAttributes.push('College');
+      locationScore = 5; // 5 pts for same college
+      locationExplanation = 'Reported at different campuses of the same university.';
+      differingAttributes.push('Campus');
     }
   } else {
     differingAttributes.push('College');
   }
   totalScore += locationScore;
 
-  // 6. Time Plausibility (5 pts)
-  let timeScore = 5;
-  let timeMatched = true;
-  let timeExplanation = 'Timeline is plausible.';
+  const locationBreakdown: AttributeScoreBreakdown = {
+    name: 'Campus Facility Proximity',
+    score: locationScore,
+    maxScore: MATCH_CONFIG.WEIGHTS.LOCATION,
+    matched: locationMatched,
+    explanation: locationExplanation,
+  };
 
-  const lostDate = new Date(lostItem.occurredAt).getTime();
-  const foundDate = new Date(foundItem.occurredAt).getTime();
-  const daysDiff = (foundDate - lostDate) / (1000 * 3600 * 24);
+  // 6. Chronology / Timeline Plausibility (Max 10 pts)
+  let chronologyScore = 0;
+  let chronologyMatched = false;
+  let chronologyExplanation = '';
 
-  if (daysDiff < -2) {
-    timeScore = 0;
-    timeMatched = false;
-    timeExplanation = 'Item was found significantly before the reported lost date.';
-    differingAttributes.push('Incident Date');
+  const lostTime = new Date(lostItem.occurredAt).getTime();
+  const foundTime = new Date(foundItem.occurredAt).getTime();
+  const hoursDifference = (foundTime - lostTime) / (1000 * 3600);
+
+  if (hoursDifference >= 0) {
+    // Found after lost -> logically plausible
+    chronologyScore = MATCH_CONFIG.WEIGHTS.CHRONOLOGY;
+    chronologyMatched = true;
+    chronologyExplanation = 'Timeline is plausible (item found after reported loss date).';
+    matchingAttributes.push('Chronology');
+  } else if (hoursDifference >= -24) {
+    // Found within 24 hours prior -> approximate reporting time tolerance
+    chronologyScore = 5;
+    chronologyMatched = true;
+    chronologyExplanation = 'Approximate timeline match within 24-hour reporting margin of error.';
+    matchingAttributes.push('Approximate Timeline');
   } else {
-    matchingAttributes.push('Timeline Plausibility');
+    // Found significantly before lost -> chronologically implausible
+    chronologyScore = 0;
+    chronologyMatched = false;
+    chronologyExplanation = 'Chronological mismatch: Item was found days before the reported loss date.';
+    differingAttributes.push('Date Timeline');
   }
-  totalScore += timeScore;
+  totalScore += chronologyScore;
+
+  const chronologyBreakdown: AttributeScoreBreakdown = {
+    name: 'Timeline Plausibility',
+    score: chronologyScore,
+    maxScore: MATCH_CONFIG.WEIGHTS.CHRONOLOGY,
+    matched: chronologyMatched,
+    explanation: chronologyExplanation,
+  };
 
   totalScore = Math.min(100, Math.max(0, totalScore));
 
-  const confidenceTier: 'high' | 'medium' | 'low' =
-    totalScore >= 70 ? 'high' : totalScore >= 45 ? 'medium' : 'low';
+  const confidenceTier: 'strong' | 'possible' | 'low' =
+    totalScore >= MATCH_CONFIG.THRESHOLDS.STRONG_MATCH
+      ? 'strong'
+      : totalScore >= MATCH_CONFIG.THRESHOLDS.POSSIBLE_MATCH
+      ? 'possible'
+      : 'low';
+
+  const safeExplanation =
+    matchingAttributes.length > 0
+      ? `Alignment detected on: ${matchingAttributes.join(', ')}.`
+      : 'Low attribute similarity between reports.';
 
   return {
     totalScore,
     confidenceTier,
+    eligible: true,
     breakdown: {
-      category: {
-        name: 'Category Match',
-        score: categoryScore,
-        maxScore: 30,
-        matched: categoryMatched,
-        explanation: categoryMatched
-          ? `Identical category: ${lostItem.category}`
-          : `Different categories: ${lostItem.category} vs ${foundItem.category}`,
-      },
-      nameSimilarity: {
-        name: 'Title & Keywords',
-        score: nameScore,
-        maxScore: 25,
-        matched: nameScore >= 12,
-        explanation: `${nameScore} / 25 keyword overlap score based on item title and details.`,
-      },
-      brand: {
-        name: 'Brand Verification',
-        score: brandScore,
-        maxScore: 15,
-        matched: brandMatched,
-        explanation: brandExplanation,
-      },
-      color: {
-        name: 'Color Assessment',
-        score: colorScore,
-        maxScore: 15,
-        matched: colorMatched,
-        explanation: colorExplanation,
-      },
-      location: {
-        name: 'Campus Proximity',
-        score: locationScore,
-        maxScore: 10,
-        matched: locationMatched,
-        explanation: locationExplanation,
-      },
-      timePlausibility: {
-        name: 'Date Plausibility',
-        score: timeScore,
-        maxScore: 5,
-        matched: timeMatched,
-        explanation: timeExplanation,
-      },
+      category: categoryBreakdown,
+      nameSimilarity: nameBreakdown,
+      color: colorBreakdown,
+      brand: brandBreakdown,
+      location: locationBreakdown,
+      chronology: chronologyBreakdown,
     },
     matchingAttributes,
     differingAttributes,
+    safeExplanation,
   };
 }
 
+// ------------------------------------------------------------------------------
+// CANDIDATE DISCOVERY & PERSISTENCE ENGINE (PART 2.4 & 2.5)
+// ------------------------------------------------------------------------------
+
 /**
- * Triggers match evaluation for a newly created or updated item against opposing items
+ * Executes indexed candidate queries to find potential matches without all-pairs scans
  */
-export async function triggerMatchingEngineForItem(newItemId: string) {
+export async function triggerMatchingEngineForItem(newItemId: string): Promise<number> {
   const item = await prisma.item.findUnique({
     where: { id: newItemId },
   });
 
-  if (!item || item.status !== ItemStatus.OPEN) return;
+  if (!item || item.status !== ItemStatus.OPEN) return 0;
 
   const oppositeType = item.type === ItemReportType.LOST ? ItemReportType.FOUND : ItemReportType.LOST;
 
+  // Narrow candidates using indexed database fields (collegeId, type, status)
   const candidates = await prisma.item.findMany({
     where: {
       collegeId: item.collegeId,
       type: oppositeType,
       status: ItemStatus.OPEN,
+      // Exclude reports by the same student
+      reporterId: { not: item.reporterId },
+      // Exclude archived items
+      isArchived: false,
     },
+    take: 50, // Bounded workload
   });
+
+  let matchedCount = 0;
 
   for (const candidate of candidates) {
     const lostItem = item.type === ItemReportType.LOST ? item : candidate;
@@ -245,8 +503,10 @@ export async function triggerMatchingEngineForItem(newItemId: string) {
 
     const evaluation = evaluateItemMatch(lostItem, foundItem);
 
-    if (evaluation.totalScore >= 40) {
-      await prisma.match.upsert({
+    if (evaluation.eligible && evaluation.totalScore >= MATCH_CONFIG.THRESHOLDS.MINIMUM_PERSISTENCE) {
+      matchedCount++;
+      // Upsert match record
+      const matchRecord = await prisma.match.upsert({
         where: {
           lostItemId_foundItemId: {
             lostItemId: lostItem.id,
@@ -255,35 +515,107 @@ export async function triggerMatchingEngineForItem(newItemId: string) {
         },
         update: {
           score: evaluation.totalScore,
-          explanation: JSON.stringify(evaluation),
-          status: 'SUGGESTED',
+          explanation: JSON.stringify({
+            breakdown: evaluation.breakdown,
+            matchingAttributes: evaluation.matchingAttributes,
+            differingAttributes: evaluation.differingAttributes,
+            confidenceTier: evaluation.confidenceTier,
+            safeExplanation: evaluation.safeExplanation,
+          }),
+          status: 'ACTIVE',
+          ruleVersion: MATCH_CONFIG.RULE_VERSION,
+          collegeId: item.collegeId,
         },
         create: {
           lostItemId: lostItem.id,
           foundItemId: foundItem.id,
           score: evaluation.totalScore,
-          explanation: JSON.stringify(evaluation),
-          status: 'SUGGESTED',
+          explanation: JSON.stringify({
+            breakdown: evaluation.breakdown,
+            matchingAttributes: evaluation.matchingAttributes,
+            differingAttributes: evaluation.differingAttributes,
+            confidenceTier: evaluation.confidenceTier,
+            safeExplanation: evaluation.safeExplanation,
+          }),
+          status: 'ACTIVE',
+          ruleVersion: MATCH_CONFIG.RULE_VERSION,
+          collegeId: item.collegeId,
         },
       });
 
-      // Notify users about match
-      const notifyUsers = [
-        { userId: lostItem.reporterId, text: `Potential match (${evaluation.totalScore}%) found for your lost "${lostItem.name}"!` },
-        { userId: foundItem.reporterId, text: `Your found "${foundItem.name}" matches a reported lost item (${evaluation.totalScore}% match)!` },
+      // Update item statuses to POTENTIAL_MATCH if they are currently OPEN
+      if (item.status === ItemStatus.OPEN) {
+        await prisma.item.update({
+          where: { id: item.id },
+          data: { status: ItemStatus.POTENTIAL_MATCH },
+        }).catch(() => {});
+      }
+
+      const notifType =
+        evaluation.totalScore >= MATCH_CONFIG.THRESHOLDS.STRONG_MATCH ? 'strong_match' : 'match_found';
+
+      const notifications = [
+        {
+          userId: lostItem.reporterId,
+          title: evaluation.totalScore >= 80 ? 'Strong Match Detected! 🎯' : 'Potential Match Found',
+          message: `Your lost "${lostItem.name}" has a ${evaluation.totalScore}% match with a recently found item.`,
+          linkUrl: `/matches`,
+        },
+        {
+          userId: foundItem.reporterId,
+          title: 'Potential Owner Match Found',
+          message: `Your turned-in "${foundItem.name}" has a ${evaluation.totalScore}% match with a student's lost report.`,
+          linkUrl: `/matches`,
+        },
       ];
 
-      for (const n of notifyUsers) {
-        await prisma.notification.create({
-          data: {
+      for (const n of notifications) {
+        // Prevent duplicate spam notifications for same resource
+        const existing = await prisma.notification.findFirst({
+          where: {
             userId: n.userId,
-            type: 'match_found',
-            title: 'Potential Item Match Found',
-            message: n.text,
-            linkUrl: `/matches`,
+            resourceId: matchRecord.id,
           },
-        }).catch(() => {});
+        });
+
+        if (!existing) {
+          await prisma.notification.create({
+            data: {
+              userId: n.userId,
+              type: notifType,
+              title: n.title,
+              message: n.message,
+              resourceId: matchRecord.id,
+              linkUrl: n.linkUrl,
+            },
+          }).catch(() => {});
+        }
       }
     }
   }
+
+  return matchedCount;
+}
+
+/**
+ * Recalculates all active matches for an institution or specific report
+ */
+export async function recalculateMatchesForCollege(collegeId: string, limit = 100): Promise<{ processed: number; matchesCreated: number }> {
+  const lostItems = await prisma.item.findMany({
+    where: {
+      collegeId,
+      type: ItemReportType.LOST,
+      status: { in: [ItemStatus.OPEN, ItemStatus.POTENTIAL_MATCH] },
+      isArchived: false,
+    },
+    take: limit,
+  });
+
+  let matchesCreated = 0;
+  for (const lost of lostItems) {
+    await triggerMatchingEngineForItem(lost.id);
+    matchesCreated++;
+  }
+
+  return { processed: lostItems.length, matchesCreated };
 }

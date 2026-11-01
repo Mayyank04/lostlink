@@ -22,3 +22,4 @@ export async function verifyPassword(hash: string, plainText: string): Promise<b
     return false;
   }
 }
+

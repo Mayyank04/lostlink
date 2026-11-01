@@ -1,7 +1,7 @@
 // ==============================================================================
 // LOSTLINK 2.0 — PRISMA SCHEMA DEFINITION
 // Cloud Computing Module IV PBL Project
-// Multi-College Lost & Found Architecture
+// Multi-College Lost & Found Architecture — Phase 3 Extended
 // ==============================================================================
 
 generator client {
@@ -62,7 +62,18 @@ enum ClaimStatus {
   UNDER_REVIEW
   APPROVED
   REJECTED
+  HANDOVER_PENDING
+  RETURNED
+  CANCELLED
+  DISPUTED
   COMPLETED
+}
+
+enum HandoverStatus {
+  PENDING
+  CONFIRMED
+  EXPIRED
+  CANCELLED
 }
 
 // ------------------------------------------------------------------------------
@@ -151,31 +162,36 @@ model User {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
-  memberships   CollegeMembership[]
-  reportedItems Item[]             @relation("UserReportedItems")
-  claims        Claim[]            @relation("UserClaims")
-  notifications Notification[]
-  sessions      Session[]
-  auditLogs     AuditLog[]         @relation("ActorAuditLogs")
+  memberships              CollegeMembership[]
+  reportedItems            Item[]                    @relation("UserReportedItems")
+  claims                   Claim[]                   @relation("UserClaims")
+  notifications            Notification[]
+  sessions                 Session[]
+  auditLogs                AuditLog[]                @relation("ActorAuditLogs")
+  conversationParticipants ConversationParticipant[]
+  sentMessages             Message[]                 @relation("UserSentMessages")
+  messageReports           MessageReport[]           @relation("UserReportedMessages")
+  claimStatusActions       ClaimStatusHistory[]      @relation("ActorClaimStatusHistory")
+  notificationPreference   NotificationPreference?
 
   @@index([email])
   @@index([role])
 }
 
 model CollegeMembership {
-  id                String           @id @default(cuid())
-  userId            String
-  collegeId         String
-  studentIdentifier String?          // Private student ID (never exposed publicly)
-  verificationMethod String          @default("EMAIL_DOMAIN")
-  status            MembershipStatus @default(VERIFIED)
-  verifiedAt        DateTime?        @default(now())
-  verifiedBy        String?          @default("SYSTEM")
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
+  id                 String           @id @default(cuid())
+  userId             String
+  collegeId          String
+  studentIdentifier  String?          // Private student ID (never exposed publicly)
+  verificationMethod String           @default("EMAIL_DOMAIN")
+  status             MembershipStatus @default(VERIFIED)
+  verifiedAt         DateTime?        @default(now())
+  verifiedBy         String?          @default("SYSTEM")
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
 
-  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  college           College          @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  college            College          @relation(fields: [collegeId], references: [id], onDelete: Cascade)
 
   @@unique([userId, collegeId])
   @@index([userId])
@@ -188,41 +204,43 @@ model CollegeMembership {
 // ------------------------------------------------------------------------------
 
 model Item {
-  id                   String          @id @default(cuid())
-  reportNumber         String          @unique // e.g. "LL-2026-8812" or "FD-2026-3021"
-  reporterId           String
-  collegeId            String
-  campusId             String
-  locationId           String?
-  locationBuilding     String
-  locationSpecifics    String?
-  type                 ItemReportType  // LOST or FOUND (immutable)
-  name                 String
-  category             String          // electronics, keys, bags, etc.
-  brand                String?
-  color                String
-  secondaryColor       String?
-  description          String
-  occurredAt           DateTime
-  reportedAt           DateTime        @default(now())
-  status               ItemStatus      @default(OPEN)
-  depositedWithOffice  Boolean         @default(false)
-  officeLocationNotes  String?
-  viewsCount           Int             @default(0)
-  isArchived           Boolean         @default(false)
-  createdAt            DateTime        @default(now())
-  updatedAt            DateTime        @updatedAt
+  id                  String          @id @default(cuid())
+  reportNumber        String          @unique // e.g. "LL-2026-8812" or "FD-2026-3021"
+  reporterId          String
+  collegeId           String
+  campusId            String
+  locationId          String?
+  locationBuilding    String
+  locationSpecifics   String?
+  type                ItemReportType  // LOST or FOUND (immutable)
+  name                String
+  category            String          // electronics, keys, bags, etc.
+  brand               String?
+  color               String
+  secondaryColor      String?
+  description         String
+  occurredAt          DateTime
+  reportedAt          DateTime        @default(now())
+  status              ItemStatus      @default(OPEN)
+  depositedWithOffice Boolean         @default(false)
+  officeLocationNotes String?
+  viewsCount          Int             @default(0)
+  isArchived          Boolean         @default(false)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
 
-  reporter             User            @relation("UserReportedItems", fields: [reporterId], references: [id], onDelete: Cascade)
-  college              College         @relation(fields: [collegeId], references: [id], onDelete: Cascade)
-  campus               Campus          @relation(fields: [campusId], references: [id], onDelete: Cascade)
-  location             CampusLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  reporter            User            @relation("UserReportedItems", fields: [reporterId], references: [id], onDelete: Cascade)
+  college             College         @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  campus              Campus          @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  location            CampusLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
 
-  images               ItemImage[]
-  privateEvidence      PrivateItemEvidence?
-  lostMatches          Match[]         @relation("LostItemMatches")
-  foundMatches         Match[]         @relation("FoundItemMatches")
-  claims               Claim[]
+  images              ItemImage[]
+  privateEvidence     PrivateItemEvidence?
+  lostMatches         Match[]         @relation("LostItemMatches")
+  foundMatches        Match[]         @relation("FoundItemMatches")
+  claims              Claim[]
+  handoverChallenges  HandoverChallenge[]
+  conversations       Conversation[]
 
   @@index([collegeId])
   @@index([campusId])
@@ -266,10 +284,13 @@ model Match {
   id          String   @id @default(cuid())
   lostItemId  String
   foundItemId String
+  collegeId   String?
+  ruleVersion Int      @default(1)
   score       Int      // 0 to 100
-  explanation String   // JSON breakdown of 6 dimensions
-  status      String   @default("SUGGESTED") // SUGGESTED, DISMISSED, CLAIMED
+  explanation String   // JSON breakdown of dimensions
+  status      String   @default("ACTIVE") // ACTIVE, DISMISSED, CLAIMED, RESOLVED, EXPIRED
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
 
   lostItem    Item     @relation("LostItemMatches", fields: [lostItemId], references: [id], onDelete: Cascade)
   foundItem   Item     @relation("FoundItemMatches", fields: [foundItemId], references: [id], onDelete: Cascade)
@@ -277,48 +298,167 @@ model Match {
   @@unique([lostItemId, foundItemId])
   @@index([lostItemId])
   @@index([foundItemId])
+  @@index([collegeId])
   @@index([score])
+  @@index([status])
 }
 
 model Claim {
-  id                       String      @id @default(cuid())
-  referenceNumber          String      @unique // e.g. "CLM-2026-4419"
+  id                       String               @id @default(cuid())
+  referenceNumber          String               @unique // e.g. "CLM-2026-4419"
   itemId                   String
   claimantId               String
-  privateEvidenceReference String      // JSON answers to ownership questions
+  linkedLostItemId         String?
+  privateEvidenceReference String               // JSON answers to ownership questions
   additionalProofNotes     String?
-  status                   ClaimStatus @default(PENDING)
+  status                   ClaimStatus          @default(PENDING)
   reviewedBy               String?
   reviewedAt               DateTime?
-  handoverCode             String?     // 6-digit OTP exchange code
+  handoverCode             String?              // 6-digit OTP exchange code
   handoverLocation         String?
-  claimantConfirmed        Boolean     @default(false)
-  finderConfirmed          Boolean     @default(false)
+  claimantConfirmed        Boolean              @default(false)
+  finderConfirmed          Boolean              @default(false)
   rejectionReason          String?
-  timeline                 String      @default("[]") // JSON array of audit events
-  createdAt                DateTime    @default(now())
-  updatedAt                DateTime    @updatedAt
+  timeline                 String               @default("[]") // JSON array of audit events
+  createdAt                DateTime             @default(now())
+  updatedAt                DateTime             @updatedAt
 
-  item                     Item        @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  claimant                 User        @relation("UserClaims", fields: [claimantId], references: [id], onDelete: Cascade)
+  item                     Item                 @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  claimant                 User                 @relation("UserClaims", fields: [claimantId], references: [id], onDelete: Cascade)
+  statusHistory            ClaimStatusHistory[]
+  handoverChallenge        HandoverChallenge?
+  conversations            Conversation[]
 
   @@index([itemId])
   @@index([claimantId])
   @@index([status])
 }
 
+model ClaimStatusHistory {
+  id         String      @id @default(cuid())
+  claimId    String
+  fromStatus ClaimStatus
+  toStatus   ClaimStatus
+  actorId    String
+  reasonCode String?
+  notes      String?
+  createdAt  DateTime    @default(now())
+
+  claim      Claim       @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  actor      User        @relation("ActorClaimStatusHistory", fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([claimId])
+  @@index([actorId])
+  @@index([createdAt])
+}
+
 // ------------------------------------------------------------------------------
-// NOTIFICATIONS & AUDIT LOGS
+// HANDOVER & RETURN VERIFICATION
+// ------------------------------------------------------------------------------
+
+model HandoverChallenge {
+  id                 String         @id @default(cuid())
+  claimId            String         @unique
+  itemId             String
+  codeHash           String         // SHA-256 hash of 6-digit OTP
+  qrTokenHash        String?        // SHA-256 hash of secure QR verifier string
+  status             HandoverStatus @default(PENDING)
+  verificationMethod String         @default("OTP") // OTP, QR, MANUAL_MODERATOR
+  expiresAt          DateTime
+  confirmedByUserId  String?
+  confirmedAt        DateTime?
+  handoverLocation   String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  claim              Claim          @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  item               Item           @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([claimId])
+  @@index([itemId])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+// ------------------------------------------------------------------------------
+// MESSAGING & COMMUNICATIONS
+// ------------------------------------------------------------------------------
+
+model Conversation {
+  id           String                    @id @default(cuid())
+  claimId      String?
+  itemId       String?
+  title        String?
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+
+  claim        Claim?                    @relation(fields: [claimId], references: [id], onDelete: SetNull)
+  item         Item?                     @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  participants ConversationParticipant[]
+  messages     Message[]
+
+  @@index([claimId])
+  @@index([itemId])
+}
+
+model ConversationParticipant {
+  id             String       @id @default(cuid())
+  conversationId String
+  userId         String
+  joinedAt       DateTime     @default(now())
+  lastReadAt     DateTime     @default(now())
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+}
+
+model Message {
+  id             String          @id @default(cuid())
+  conversationId String
+  senderId       String
+  content        String
+  createdAt      DateTime        @default(now())
+
+  conversation   Conversation    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User            @relation("UserSentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  reports        MessageReport[]
+
+  @@index([conversationId])
+  @@index([senderId])
+  @@index([createdAt])
+}
+
+model MessageReport {
+  id         String   @id @default(cuid())
+  messageId  String
+  reporterId String
+  reason     String
+  status     String   @default("PENDING") // PENDING, RESOLVED, DISMISSED
+  createdAt  DateTime @default(now())
+
+  message    Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  reporter   User     @relation("UserReportedMessages", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([reporterId])
+}
+
+// ------------------------------------------------------------------------------
+// NOTIFICATIONS, PREFERENCES & OUTBOX
 // ------------------------------------------------------------------------------
 
 model Notification {
   id         String   @id @default(cuid())
   userId     String
-  type       String   // match_found, claim_received, claim_approved, system_update
+  type       String   // match_found, strong_match, claim_received, claim_approved, new_message, handover_ready, item_returned
   title      String
   message    String
   resourceId String?
   linkUrl    String?
+  metadata   String?  // JSON context
   isRead     Boolean  @default(false)
   createdAt  DateTime @default(now())
 
@@ -328,12 +468,40 @@ model Notification {
   @@index([isRead])
 }
 
+model NotificationPreference {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  emailMatches   Boolean  @default(true)
+  emailClaims    Boolean  @default(true)
+  emailMessages  Boolean  @default(true)
+  emailHandovers Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model OutboxEvent {
+  id          String    @id @default(cuid())
+  eventType   String    // NOTIFICATION, EMAIL, MATCH_RECALCULATION
+  payload     String    // JSON payload
+  status      String    @default("PENDING") // PENDING, PROCESSED, FAILED
+  attempts    Int       @default(0)
+  error       String?
+  createdAt   DateTime  @default(now())
+  processedAt DateTime?
+
+  @@index([status])
+  @@index([eventType])
+  @@index([createdAt])
+}
+
 model AuditLog {
   id           String   @id @default(cuid())
   actorId      String?
   collegeId    String?
-  action       String   // CREATE_REPORT, APPROVE_CLAIM, REJECT_CLAIM, DELETE_REPORT, etc.
-  resourceType String   // ITEM, CLAIM, USER, COLLEGE
+  action       String   // CREATE_REPORT, APPROVE_CLAIM, REJECT_CLAIM, DELETE_REPORT, HANDOVER_CONFIRMED, etc.
+  resourceType String   // ITEM, CLAIM, USER, COLLEGE, HANDOVER, MESSAGE
   resourceId   String?
   metadata     String?  // JSON context (sanitized; no secrets/passwords)
   ipAddress    String?
