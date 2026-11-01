@@ -1,48 +1,112 @@
 services:
-  # PostgreSQL Database Container
+  # ----------------------------------------------------------------------------
+  # 1. PostgreSQL Relational Database Cluster
+  # ----------------------------------------------------------------------------
   postgres:
     image: postgres:16-alpine
     container_name: lostlink-postgres
-    restart: always
+    restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgrespassword
       POSTGRES_DB: lostlink_dev
     ports:
-      - "5432:5432"
+      - "5436:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d lostlink_dev"]
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - lostlink-net
 
-  # MinIO S3-Compatible Local Object Storage
-  minio:
-    image: minio/minio:latest
-    container_name: lostlink-minio
-    restart: always
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadminpassword
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - minio_data:/data
-
-  # Mailpit - Local Development Email Catcher
+  # ----------------------------------------------------------------------------
+  # 3. Mailpit - Local Development Email Catcher
+  # ----------------------------------------------------------------------------
   mailpit:
     image: axllent/mailpit:latest
     container_name: lostlink-mailpit
-    restart: always
+    restart: unless-stopped
     ports:
       - "1025:1025" # SMTP port
       - "8025:8025" # Web UI port
+    networks:
+      - lostlink-net
+
+  # ----------------------------------------------------------------------------
+  # 4. Next.js Web Application Container
+  # ----------------------------------------------------------------------------
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.web
+    image: lostlink-web:latest
+    container_name: lostlink-web
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: "0.0.0.0"
+      DATABASE_URL: "postgresql://postgres:postgrespassword@postgres:5432/lostlink_dev?schema=public"
+      AUTH_SECRET: "lostlink_super_secure_jwt_session_secret_min_32_characters_long_2026"
+      SESSION_EXPIRY_DAYS: 7
+      STORAGE_PROVIDER: local
+      STORAGE_BUCKET_NAME: lostlink-media
+      STORAGE_ENDPOINT: http://minio:9000
+      STORAGE_ACCESS_KEY_ID: minioadmin
+      STORAGE_SECRET_ACCESS_KEY: minioadminpassword
+      STORAGE_PUBLIC_URL: /uploads
+      EMAIL_PROVIDER: test
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health/live"]
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    networks:
+      - lostlink-net
+
+  # ----------------------------------------------------------------------------
+  # 5. Background Outbox & Matching Worker Container
+  # ----------------------------------------------------------------------------
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.worker
+    image: lostlink-worker:latest
+    container_name: lostlink-worker
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: "postgresql://postgres:postgrespassword@postgres:5432/lostlink_dev?schema=public"
+      WORKER_HEALTH_PORT: 3001
+      WORKER_POLL_INTERVAL_MS: 3000
+    ports:
+      - "3001:3001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/healthz"]
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    networks:
+      - lostlink-net
+
+networks:
+  lostlink-net:
+    driver: bridge
 
 volumes:
   postgres_data:
-  minio_data:
-

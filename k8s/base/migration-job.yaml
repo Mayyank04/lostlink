@@ -1,0 +1,60 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: lostlink-db-migrate
+  namespace: lostlink
+  labels:
+    app.kubernetes.io/name: lostlink
+    app.kubernetes.io/component: db-migration
+spec:
+  backoffLimit: 5
+  template:
+    metadata:
+      labels:
+        app: lostlink-db-migrate
+        app.kubernetes.io/name: lostlink
+        app.kubernetes.io/component: db-migration
+    spec:
+      serviceAccountName: lostlink-sa
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:16-alpine
+          command:
+            - /bin/sh
+            - -c
+            - |
+              until pg_isready -h postgres -p 5432 -U lostlink -d lostlink; do
+                echo "Waiting for PostgreSQL to be ready..."
+                sleep 2
+              done
+              echo "PostgreSQL is reachable!"
+          env:
+            - name: PGCONNECT_TIMEOUT
+              value: "5"
+      containers:
+        - name: prisma-migrate
+          image: lostlink-worker:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - npx
+            - prisma
+            - db
+            - push
+            - --skip-generate
+          envFrom:
+            - configMapRef:
+                name: lostlink-config
+            - secretRef:
+                name: lostlink-secrets
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi

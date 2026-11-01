@@ -1,0 +1,55 @@
+# ==============================================================================
+# LOSTLINK 2.0 — BACKGROUND OUTBOX & MATCHING WORKER CONTAINER
+# Cloud-native asynchronous event processing daemon
+# ==============================================================================
+
+# STAGE 1: Dependencies & Prisma Generation
+FROM node:20-slim AS deps
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openssl \
+    ca-certificates \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY package.json package-lock.json ./
+COPY prisma ./prisma
+
+RUN npm ci && npx prisma generate
+
+# STAGE 2: Minimal Worker Runtime
+FROM node:20-slim AS runner
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openssl \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV NODE_ENV=production
+ENV WORKER_HEALTH_PORT=3001
+ENV PATH="/app/node_modules/.bin:$PATH"
+
+# Non-root user for container security compliance
+RUN groupadd --system --gid 1001 nodejs && \
+    useradd --system --uid 1001 -g nodejs nextjs
+
+# Copy dependencies and source needed for background processing
+COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
+COPY --from=deps --chown=nextjs:nodejs /app/prisma ./prisma
+COPY --chown=nextjs:nodejs package.json tsconfig.json ./
+COPY --chown=nextjs:nodejs src ./src
+COPY --chown=nextjs:nodejs worker ./worker
+
+USER nextjs
+
+EXPOSE 3001
+
+HEALTHCHECK --interval=20s --timeout=3s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:3001/healthz || exit 1
+
+CMD ["tsx", "worker/index.ts"]

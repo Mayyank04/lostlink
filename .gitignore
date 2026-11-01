@@ -30,6 +30,9 @@ yarn-error.log*
 # local env files
 .env
 .env*.local
+k8s/**/secret.yaml
+k8s/**/secrets.yaml
+backups/*.sql
 
 # vercel
 .vercel

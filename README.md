@@ -1,8 +1,15 @@
 # LostLink 2.0 — Smart Multi-College Lost & Found Platform
 
+![Next.js](https://img.shields.io/badge/Next.js-14.2-black?logo=next.js)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue?logo=typescript)
+![Docker](https://img.shields.io/badge/Docker-Multi--Stage-2496ED?logo=docker)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-k3d%20%2F%20k3s-326CE5?logo=kubernetes)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql)
+![Vitest](https://img.shields.io/badge/Tests-54%20Passing-success?logo=vitest)
+
 > **Tagline:** "Lost something? Let's find it together."  
 > **Course / Academic Module:** Cloud Computing Module IV PBL Project  
-> **Architecture:** Production Full-Stack Next.js 14 App Router + PostgreSQL + Prisma ORM + Multi-Tenant Security
+> **Architecture:** Cloud-Native Micro-Tiered Architecture (Next.js Standalone + Dedicated Worker + PostgreSQL StatefulSet + Traefik Ingress + HPA Autoscaling)
 
 ---
 
@@ -290,35 +297,78 @@ npm run build     # Verify full Next.js production build
 
 ---
 
-## 10. Production Deployment (Docker & Kubernetes)
+## 10. Phase 4 Cloud-Native Infrastructure (Docker & Kubernetes)
 
-### Production Container Build
+LostLink 2.0 is fully orchestrated for local execution and production cloud deployments:
+
+### Option A: Local Kubernetes Deployment via `k3d` (Recommended for PBL)
 ```bash
-docker build -t lostlink:2.0 .
-docker run -p 3000:3000 --env-file .env lostlink:2.0
+# 1. Audit system prerequisites (Apple Silicon / Docker / k3d)
+./scripts/check-prerequisites.sh
+
+# 2. Initialize dual-node Kubernetes cluster with Traefik Ingress
+./scripts/k8s-create-cluster.sh
+
+# 3. Build & import lean multi-stage images
+./scripts/k8s-build-load.sh
+
+# 4. Deploy Kustomize manifests (DB StatefulSet, Migration Job, Web, Worker, HPA, Ingress)
+./scripts/k8s-deploy.sh
+
+# 5. Execute automated smoke tests
+./scripts/k8s-test.sh
+
+# 6. Run load test & autoscaling benchmark (200 req/sec)
+./scripts/load-test.sh http://localhost:8080/api/health/ready 200 20
 ```
 
-### Kubernetes Readiness & Liveness Probes
-LostLink includes a dedicated `/api/health` route handler reporting database latency:
-```yaml
-livenessProbe:
-  httpGet:
-    path: /api/health
-    port: 3000
-  initialDelaySeconds: 15
-  periodSeconds: 10
-readinessProbe:
-  httpGet:
-    path: /api/health
-    port: 3000
-  initialDelaySeconds: 5
-  periodSeconds: 5
+Access Points:
+- **Web App via Ingress:** [http://localhost:8080](http://localhost:8080) (or `http://lostlink.local:8080`)
+- **Liveness Probe:** [http://localhost:8080/api/health/live](http://localhost:8080/api/health/live)
+- **Readiness Probe:** [http://localhost:8080/api/health/ready](http://localhost:8080/api/health/ready)
+
+### Option B: Local Development with Docker Compose
+```bash
+# Launch Compose stack (Postgres 16, Mailpit, Next.js Web, Background Worker)
+./scripts/docker-up.sh
+
+# Stop Compose stack
+./scripts/docker-down.sh
+```
+
+### Database Backup & Disaster Recovery
+```bash
+# Dump PostgreSQL state from the active Kubernetes pod
+./scripts/k8s-backup-db.sh
+
+# Restore from a backup SQL dump
+./scripts/k8s-restore-db.sh backups/lostlink_k8s_backup_20261101_213521.sql
 ```
 
 ---
 
-## 11. Git Feature Branch & Submission
+## 11. Complete Phase 4 Documentation Guides
+
+Comprehensive documentation is provided in the `docs/` directory:
+
+1. [**Phase 4 Infrastructure Specification**](docs/PHASE4_INFRASTRUCTURE.md) — Detailed topology diagrams, resource allocations, network isolation, and microservices decoupling.
+2. [**Kubernetes Operations Guide**](docs/KUBERNETES_GUIDE.md) — Apple Silicon Mac setup, cluster lifecycle commands, and troubleshooting runbook.
+3. [**Horizontal Scaling & Load Test Report**](docs/SCALING_TEST_REPORT.md) — Manual scaling benchmarks, HPA dynamic scaling, and 200 req/sec load testing evidence.
+4. [**Production Cloud Cost Optimization**](docs/COST_OPTIMIZATION.md) — Cost comparison matrix across VPS, Managed K8s (EKS/GKE), and Serverless (Cloud Run + Neon), with university budget recommendations.
+5. [**Backup & Disaster Recovery Runbook**](docs/BACKUP_RESTORE.md) — RPO/RTO targets, scripted backup/restoration steps, and recovery playbooks.
+6. [**Phase 4 Test Report & Viva Preparation**](docs/PHASE4_TEST_REPORT.md) — Full verification matrix and 10 detailed architecture viva questions and answers.
+
+---
+
+## 12. Continuous Integration & Multi-Architecture Delivery
+
+- **CI Pipeline (`.github/workflows/ci.yml`):** Runs on push and pull requests, executing linting, TypeScript compilation, Vitest test suites, and Next.js production builds.
+- **Multi-Architecture Build (`.github/workflows/docker-publish.yml`):** Automatically compiles and publishes Docker images for both `linux/amd64` and `linux/arm64` to GitHub Container Registry (`ghcr.io`).
+
+---
+
+## 13. Git Feature Branch & Submission
 
 - **Repository:** `https://github.com/Mayyank04/lostlink`
-- **Phase 3 Feature Branch:** `phase-3-recovery`
+- **Phase 4 Feature Branch:** `phase-4-cloud-native`
 - **Main Branch:** `main`

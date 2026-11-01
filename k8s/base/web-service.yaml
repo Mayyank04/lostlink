@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: lostlink-web
+  namespace: lostlink
+  labels:
+    app: lostlink-web
+    app.kubernetes.io/name: lostlink
+    app.kubernetes.io/component: web
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+  selector:
+    app: lostlink-web

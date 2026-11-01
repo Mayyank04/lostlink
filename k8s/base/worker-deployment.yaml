@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lostlink-worker
+  namespace: lostlink
+  labels:
+    app: lostlink-worker
+    tier: background
+    app.kubernetes.io/name: lostlink
+    app.kubernetes.io/component: worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lostlink-worker
+  template:
+    metadata:
+      labels:
+        app: lostlink-worker
+        tier: background
+        app.kubernetes.io/name: lostlink
+        app.kubernetes.io/component: worker
+    spec:
+      serviceAccountName: lostlink-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+      initContainers:
+        - name: wait-for-db
+          image: postgres:16-alpine
+          command:
+            - /bin/sh
+            - -c
+            - |
+              until pg_isready -h postgres -p 5432 -U lostlink -d lostlink; do
+                echo "Worker waiting for postgresql service..."
+                sleep 2
+              done
+              echo "PostgreSQL is online. Background worker initiating."
+      containers:
+        - name: worker
+          image: lostlink-worker:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: health
+              containerPort: 3001
+          envFrom:
+            - configMapRef:
+                name: lostlink-config
+            - secretRef:
+                name: lostlink-secrets
+          resources:
+            requests:
+              cpu: 50m
+              memory: 96Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 3001
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 3001
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
