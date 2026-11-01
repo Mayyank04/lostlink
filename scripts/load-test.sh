@@ -52,3 +52,4 @@ echo ""
 kubectl top pods -n lostlink -l app=lostlink-web || true
 
 rm -f /tmp/lostlink_loadtest.log
+

@@ -40,3 +40,4 @@ spec:
                 name: lostlink-web
                 port:
                   number: 3000
+

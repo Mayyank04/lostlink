@@ -32,3 +32,4 @@ echo ""
 kubectl top pods -n "${NAMESPACE}" || true
 
 echo -e "\n${BOLD}${GREEN}=== STATUS CHECK COMPLETE ===${RESET}"
+

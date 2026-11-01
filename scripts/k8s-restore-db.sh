@@ -32,3 +32,4 @@ echo -e "${BOLD}${GREEN}==> Database restored successfully!${RESET}"
 echo -e "${BOLD}${BLUE}==> Verifying table counts after restoration:${RESET}"
 kubectl exec postgres-0 -n "${NAMESPACE}" -- psql -U lostlink -d lostlink -t -c \
   "SELECT 'Colleges: ' || count(*) FROM \"College\" UNION ALL SELECT 'Users: ' || count(*) FROM \"User\" UNION ALL SELECT 'Items: ' || count(*) FROM \"Item\";"
+

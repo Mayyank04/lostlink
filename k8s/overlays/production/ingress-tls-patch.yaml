@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: lostlink-ingress
+  namespace: lostlink
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.middlewares: lostlink-redirect-https@kubernetescrd
+spec:
+  tls:
+    - hosts:
+        - lostlink.edu
+      secretName: lostlink-prod-tls
+  rules:
+    - host: lostlink.edu
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: lostlink-web
+                port:
+                  number: 3000

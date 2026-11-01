@@ -100,3 +100,4 @@ To fulfill the university's strict privacy governance and budget optimization go
    - Deploy `lostlink-web` frontend containers and Cloudflare edge proxies in public cloud regions.
    - Public cloud handles unpredictable student web traffic surges without saturating internal campus network pipes.
    - Secure WireGuard / IPsec site-to-site tunnel interconnects public cloud pods to the campus PostgreSQL cluster.
+

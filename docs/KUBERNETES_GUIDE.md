@@ -140,3 +140,4 @@ kubectl rollout restart deployment/lostlink-web -n lostlink
 ### Scenario D: `NetworkPolicy` Blocks Database Connections
 * **Root Cause:** A test pod or tool was launched without the proper `app: lostlink-web` or `app: lostlink-worker` label.
 * **Resolution:** Ensure any debugging client pods specify matching labels in their pod metadata to satisfy `postgres-network-policy`.
+

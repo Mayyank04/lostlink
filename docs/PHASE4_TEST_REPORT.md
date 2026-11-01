@@ -98,3 +98,4 @@ The system is fully containerized, orchestrated under local Kubernetes via `k3d`
 > 1. **Apple Silicon Native Performance:** `k3d` packages Rancher's lightweight `k3s` distribution inside Docker containers compiled natively for ARM64 (`aarch64`), consuming less than **800 MB RAM** compared to 3.5 GB for Docker Desktop Kubernetes.
 > 2. **True Multi-Node Topology:** `k3d` allows running realistic multi-node clusters (1 control-plane server, 1 worker agent, 1 loadbalancer proxy) locally on a laptop, exposing scheduling behaviors that single-node Minikube hides.
 > 3. **Integrated Ingress:** `k3d` bundles the Traefik Ingress Controller out of the box, eliminating the need to install Helm charts or run persistent proxy tunnels.
+

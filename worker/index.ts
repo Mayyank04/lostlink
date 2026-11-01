@@ -1,7 +1,8 @@
 import http from 'http';
 import { prisma } from '../src/lib/db';
-import { triggerMatchingEngineForItem, recalculateMatchesForCollege } from '../src/lib/matching/matchEngine';
-import { HandoverStatus } from '@prisma/client';
+import { triggerMatchingEngineForItem, recalculateMatchesForCollege, evaluateItemMatch, MATCH_CONFIG } from '../src/lib/matching/matchEngine';
+import { leaseMatchingJob, completeMatchingJob } from '../src/lib/hybrid/queue';
+import { HandoverStatus, WorkerType } from '@prisma/client';
 
 const WORKER_PORT = parseInt(process.env.WORKER_HEALTH_PORT || '3001', 10);
 const POLL_INTERVAL_MS = parseInt(process.env.WORKER_POLL_INTERVAL_MS || '3000', 10);
@@ -174,6 +175,90 @@ async function sweepExpiredSessions(): Promise<number> {
 }
 
 /**
+ * Cloud fallback watchdog: leases and processes matching jobs if campus worker is offline or lease expired
+ */
+async function processFallbackMatchingJobs(): Promise<number> {
+  const fallbackWorkerId = 'worker-cloud-fallback-01';
+
+  // Attempt to lease an unclaimed or expired job from the distributed queue
+  const leasedJob = await leaseMatchingJob(
+    fallbackWorkerId,
+    null, // Can process any college in fallback mode
+    WorkerType.CLOUD_FALLBACK
+  );
+
+  if (!leasedJob) return 0;
+
+  const startTime = Date.now();
+  console.log(`[CloudFallback] Claimed failover Job ${leasedJob.jobId} for Item ${leasedJob.reportId}`);
+
+  try {
+    const matches: any[] = [];
+    const targetItem = leasedJob.targetItem;
+
+    for (const candidate of leasedJob.candidates) {
+      const lostItem = targetItem.type === 'LOST' ? targetItem : candidate;
+      const foundItem = targetItem.type === 'FOUND' ? targetItem : candidate;
+
+      const evalLost = {
+        id: lostItem.id,
+        name: lostItem.title,
+        description: lostItem.description,
+        category: lostItem.category,
+        color: lostItem.primaryColor || '',
+        secondaryColor: lostItem.secondaryColor || null,
+        brand: lostItem.brand || null,
+        occurredAt: new Date(lostItem.occurredAt),
+        campusId: lostItem.campusId,
+        locationId: lostItem.locationId,
+      };
+
+      const evalFound = {
+        id: foundItem.id,
+        name: foundItem.title,
+        description: foundItem.description,
+        category: foundItem.category,
+        color: foundItem.primaryColor || '',
+        secondaryColor: foundItem.secondaryColor || null,
+        brand: foundItem.brand || null,
+        occurredAt: new Date(foundItem.occurredAt),
+        campusId: foundItem.campusId,
+        locationId: foundItem.locationId,
+      };
+
+      const evaluation = evaluateItemMatch(evalLost as any, evalFound as any);
+
+      if (evaluation.eligible && evaluation.totalScore >= MATCH_CONFIG.THRESHOLDS.MINIMUM_PERSISTENCE) {
+        matches.push({
+          lostItemId: lostItem.id,
+          foundItemId: foundItem.id,
+          totalScore: evaluation.totalScore,
+          confidenceTier: evaluation.confidenceTier,
+          matchingAttributes: evaluation.matchingAttributes,
+          safeExplanation: evaluation.safeExplanation,
+          breakdown: evaluation.breakdown,
+        });
+      }
+    }
+
+    const executionTimeMs = Date.now() - startTime;
+    await completeMatchingJob(leasedJob.jobId, fallbackWorkerId, {
+      matches,
+      executionTimeMs,
+      workerId: fallbackWorkerId,
+    });
+
+    jobsProcessedCount++;
+    console.log(`[CloudFallback] Completed Job ${leasedJob.jobId} (${matches.length} matches persisted in ${executionTimeMs}ms)`);
+    return 1;
+  } catch (err: any) {
+    jobsFailedCount++;
+    console.error(`[CloudFallback] Error processing job ${leasedJob.jobId}:`, err);
+    return 0;
+  }
+}
+
+/**
  * Main worker background loop
  */
 async function startWorkerLoop() {
@@ -187,6 +272,9 @@ async function startWorkerLoop() {
     try {
       isProcessingBatch = true;
       await processOutboxBatch();
+
+      // Cloud Fallback Watchdog for distributed hybrid queue
+      await processFallbackMatchingJobs();
 
       // Every ~60s (20 iterations of 3s)
       if (iteration % 20 === 0) {
@@ -246,3 +334,4 @@ startWorkerLoop().catch((err) => {
   console.error('[Worker Fatal Error]:', err);
   process.exit(1);
 });
+

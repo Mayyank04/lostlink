@@ -1,0 +1,33 @@
+# ==============================================================================
+# LOSTLINK 2.0 — WIREGUARD POINT-TO-POINT HYBRID TUNNEL CONFIGURATION
+# Site-to-Site Encrypted Tunnel between Cloud VPS and College Edge
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# CLOUD VPS CONFIGURATION: /etc/wireguard/wg0.conf
+# ------------------------------------------------------------------------------
+[Interface]
+Address = 10.100.0.1/24
+ListenPort = 51820
+PrivateKey = <CLOUD_VPS_PRIVATE_KEY>
+PostUp = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+PostDown = iptables -D FORWARD -i wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+
+# Private College Worker Node Peer (Apex Institute)
+[Peer]
+PublicKey = <CAMPUS_EDGE_PUBLIC_KEY>
+AllowedIPs = 10.100.0.2/32
+PersistentKeepalive = 25
+
+# ------------------------------------------------------------------------------
+# CAMPUS EDGE NODE CONFIGURATION: /etc/wireguard/wg0.conf
+# ------------------------------------------------------------------------------
+# [Interface]
+# Address = 10.100.0.2/24
+# PrivateKey = <CAMPUS_EDGE_PRIVATE_KEY>
+#
+# [Peer]
+# PublicKey = <CLOUD_VPS_PUBLIC_KEY>
+# Endpoint = 203.0.113.50:51820
+# AllowedIPs = 10.100.0.1/32
+# PersistentKeepalive = 25

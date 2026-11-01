@@ -1,0 +1,45 @@
+version: '3.8'
+
+# ==============================================================================
+# LOSTLINK 2.0 — COLLEGE EDGE AGENT DOCKER COMPOSE
+# Deploy this on college hardware / VM behind campus firewall / NAT.
+# ZERO INBOUND PORTS REQUIRED. Outbound HTTPS (Port 443) only.
+# ==============================================================================
+
+services:
+  campus-worker:
+    image: ghcr.io/mayyank04/lostlink-campus-worker:latest
+    container_name: lostlink-campus-worker
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    user: "1001:1001"
+    environment:
+      # Cloud endpoint (e.g. https://lostlink.edu)
+      - LOSTLINK_API_BASE_URL=${LOSTLINK_API_BASE_URL:-https://lostlink.edu}
+      # College identity registered in LostLink DB
+      - CAMPUS_COLLEGE_ID=${CAMPUS_COLLEGE_ID:-college-apex}
+      # Worker hostname or unique identifier
+      - CAMPUS_WORKER_ID=${CAMPUS_WORKER_ID:-worker-apex-edge-01}
+      # Machine-to-machine bearer token (ll_camp_live_*)
+      - CAMPUS_WORKER_KEY=${CAMPUS_WORKER_KEY}
+      # Polling rate in milliseconds
+      - CAMPUS_POLL_INTERVAL_MS=3000
+      - CAMPUS_HEALTH_PORT=3002
+    ports:
+      # Local-only health check port (for college monitoring, never exposed publicly)
+      - "127.0.0.1:3002:3002"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/healthz"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 384M
+        reservations:
+          cpus: '0.10'
+          memory: 128M

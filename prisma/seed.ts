@@ -1,5 +1,10 @@
 import { PrismaClient, UserRole, UserStatus, CollegeStatus, MembershipStatus, ItemReportType, ItemStatus, ClaimStatus } from '@prisma/client';
 import argon2 from 'argon2';
+import crypto from 'crypto';
+
+function hashApiKey(key: string): string {
+  return crypto.createHash('sha256').update(key.trim()).digest('hex');
+}
 
 const prisma = new PrismaClient();
 
@@ -7,6 +12,8 @@ async function main() {
   console.log('🌱 Starting LostLink 2.0 Database Seeding...');
 
   // 1. Clean existing records in correct dependency order
+  await prisma.matchingJob.deleteMany();
+  await prisma.campusWorkerKey.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.notification.deleteMany();
   await prisma.claim.deleteMany();
@@ -652,6 +659,33 @@ async function main() {
     ],
   });
 
+  // 8. Seed Campus Worker Machine Keys for Phase 5 Hybrid-Cloud Architecture
+  await prisma.campusWorkerKey.createMany({
+    data: [
+      {
+        workerId: 'worker-apex-edge-01',
+        collegeId: apexCollege.id,
+        name: 'Apex University Lab Edge Node',
+        apiKeyHash: hashApiKey('ll_camp_live_apex_edge_secret_key_2026'),
+        keyPrefix: 'll_camp_live_apex_',
+        status: 'ACTIVE',
+        lastHeartbeatAt: new Date(),
+        lastIpAddress: '127.0.0.1',
+      },
+      {
+        workerId: 'worker-global-fallback-01',
+        collegeId: null, // Global access
+        name: 'Public Cloud Fallback Worker Daemon',
+        apiKeyHash: hashApiKey('ll_camp_live_global_fallback_key_2026'),
+        keyPrefix: 'll_camp_live_glob_',
+        status: 'ACTIVE',
+        lastHeartbeatAt: new Date(),
+        lastIpAddress: '127.0.0.1',
+      },
+    ],
+  });
+
+  console.log('🔑 Seeded Campus Worker Machine Keys for Hybrid Architecture.');
   console.log('✅ LostLink 2.0 Database Seeding Completed Successfully!');
 }
 

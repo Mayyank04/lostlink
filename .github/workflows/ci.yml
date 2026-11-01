@@ -53,3 +53,4 @@ jobs:
           NEXTAUTH_SECRET: "ci-validation-dummy-secret-key-32chars"
           NEXTAUTH_URL: "http://localhost:3000"
         run: npm run build
+

@@ -12,3 +12,4 @@ echo -e "${BOLD}${YELLOW}==> Tearing down LostLink 2.0 Compose containers and ne
 docker compose down
 
 echo -e "${BOLD}==> Tear down complete.${RESET}"
+

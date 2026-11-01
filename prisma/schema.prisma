@@ -76,6 +76,21 @@ enum HandoverStatus {
   CANCELLED
 }
 
+enum JobStatus {
+  QUEUED
+  LEASED
+  RUNNING
+  COMPLETED
+  RETRY_PENDING
+  FAILED
+  CANCELLED
+}
+
+enum WorkerType {
+  CAMPUS
+  CLOUD_FALLBACK
+}
+
 // ------------------------------------------------------------------------------
 // COLLEGE & CAMPUS HIERARCHY
 // ------------------------------------------------------------------------------
@@ -94,10 +109,12 @@ model College {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
-  campuses     Campus[]
-  memberships  CollegeMembership[]
-  items        Item[]
-  auditLogs    AuditLog[]
+  campuses         Campus[]
+  memberships      CollegeMembership[]
+  items            Item[]
+  auditLogs        AuditLog[]
+  matchingJobs     MatchingJob[]
+  campusWorkerKeys CampusWorkerKey[]
 
   @@index([status])
   @@index([slug])
@@ -241,6 +258,7 @@ model Item {
   claims              Claim[]
   handoverChallenges  HandoverChallenge[]
   conversations       Conversation[]
+  matchingJobs        MatchingJob[]
 
   @@index([collegeId])
   @@index([campusId])
@@ -494,6 +512,61 @@ model OutboxEvent {
   @@index([status])
   @@index([eventType])
   @@index([createdAt])
+}
+
+// ------------------------------------------------------------------------------
+// PHASE 5 — DISTRIBUTED HYBRID MATCHING & CAMPUS EDGE KEYS
+// ------------------------------------------------------------------------------
+
+model MatchingJob {
+  id               String         @id @default(cuid())
+  collegeId        String
+  reportId         String         // ID of the item report triggering the matching
+  itemType         ItemReportType // LOST or FOUND
+  ruleVersion      String         @default("v2.0-deterministic")
+  status           JobStatus      @default(QUEUED)
+  attempts         Int            @default(0)
+  maxAttempts      Int            @default(3)
+  assignedWorkerId String?
+  workerType       WorkerType?
+  leasedAt         DateTime?
+  leaseExpiresAt   DateTime?
+  payload          String         // JSON payload containing sanitized item fields needed for matching
+  result           String?        // JSON result summary (matched items, scores, explanation)
+  error            String?
+  createdAt        DateTime       @default(now())
+  completedAt      DateTime?
+  updatedAt        DateTime       @updatedAt
+
+  college          College        @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  item             Item           @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([collegeId])
+  @@index([reportId])
+  @@index([leaseExpiresAt])
+  @@index([createdAt])
+}
+
+model CampusWorkerKey {
+  id              String   @id @default(cuid())
+  workerId        String   @unique // e.g., "worker-apex-edge-01"
+  collegeId       String?  // Scoped college ID, or null for platform-wide/multi-college worker
+  name            String   // e.g. "Apex Engineering Lab Edge Node"
+  apiKeyHash      String   // SHA-256 hash of API key
+  keyPrefix       String   // e.g. "ll_camp_" + first 6 chars for identification
+  status          String   @default("ACTIVE") // ACTIVE, REVOKED, SUSPENDED
+  lastHeartbeatAt DateTime?
+  lastIpAddress   String?
+  metrics         String?  // JSON metrics (uptime, cpu, memory, jobsCompleted)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  college         College? @relation(fields: [collegeId], references: [id], onDelete: SetNull)
+
+  @@index([workerId])
+  @@index([status])
+  @@index([collegeId])
 }
 
 model AuditLog {

@@ -25,3 +25,4 @@ echo -e "Health Liveness:    ${GREEN}http://localhost:3000/api/health/live${RESE
 echo -e "Health Readiness:   ${GREEN}http://localhost:3000/api/health/ready${RESET}"
 echo -e "Worker Healthz:     ${GREEN}http://localhost:3001/healthz${RESET}"
 echo -e "Mailpit Web UI:     ${GREEN}http://localhost:8025${RESET}"
+

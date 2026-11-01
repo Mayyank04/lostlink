@@ -1,0 +1,71 @@
+#cloud-config
+# ==============================================================================
+# LOSTLINK 2.0 — CLOUD-INIT AUTOMATED VPS PROVISIONING
+# ==============================================================================
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - curl
+  - wget
+  - git
+  - ufw
+  - fail2ban
+  - ca-certificates
+  - jq
+  - htop
+  - tar
+  - gzip
+
+users:
+  - default
+  - name: lostlink
+    gecos: LostLink Deploy User
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: sudo, docker
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExampleDeployKeyForLostLinkProductionStudentPBL lostlink-deploy
+
+write_files:
+  - path: /etc/sysctl.d/99-kubernetes-cri.conf
+    content: |
+      net.bridge.bridge-nf-call-iptables = 1
+      net.ipv4.ip_forward = 1
+      net.bridge.bridge-nf-call-ip6tables = 1
+      vm.swappiness = 0
+
+  - path: /etc/fail2ban/jail.local
+    content: |
+      [DEFAULT]
+      bantime = 1h
+      findtime = 10m
+      maxretry = 5
+
+      [sshd]
+      enabled = true
+      port = ssh
+      maxretry = 4
+
+runcmd:
+  - sysctl --system
+  - systemctl restart fail2ban
+  # Configure UFW
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw limit 22/tcp
+  - ufw allow 80/tcp
+  - ufw allow 443/tcp
+  - ufw deny 5432/tcp
+  - ufw deny 6443/tcp
+  - ufw --force enable
+  # Install K3s lightweight Kubernetes server
+  - curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="server --write-kubeconfig-mode 644 --disable servicelb" sh -
+  # Configure Kubeconfig for lostlink user
+  - mkdir -p /home/lostlink/.kube
+  - cp /etc/rancher/k3s/k3s.yaml /home/lostlink/.kube/config
+  - chown -R lostlink:lostlink /home/lostlink/.kube
+  - chmod 600 /home/lostlink/.kube/config
+  # Install cert-manager
+  - kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.17.0/cert-manager.yaml

@@ -113,3 +113,4 @@ lostlink-web-796c98cb79-nf2sb   2m           28Mi
 1. **Next.js Standalone Efficiency:** Each replica consumes only **~28MB to 32MB of RAM** under normal load, allowing high pod density per node without risk of memory pressure or OOMKills.
 2. **CPU Target Headroom:** LostLink handles up to 200 req/sec at a modest ~2% to 4% CPU utilization per pod. If CPU utilization exceeds 60% under sustained synthetic stress, the HPA automatically triggers scale-up to 5 replicas within 15 seconds.
 3. **Database Connection Pool Stability:** The PostgreSQL container maintained negligible CPU load (< 8m) and zero dropped connection errors during the concurrency spike.
+

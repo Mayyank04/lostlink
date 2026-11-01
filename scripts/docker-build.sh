@@ -17,3 +17,4 @@ docker build -t lostlink-worker:latest -f docker/Dockerfile.worker .
 
 echo -e "${BOLD}${GREEN}==> Successfully built all Docker images!${RESET}"
 docker images | grep -E "lostlink-web|lostlink-worker"
+

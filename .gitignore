@@ -33,6 +33,10 @@ yarn-error.log*
 k8s/**/secret.yaml
 k8s/**/secrets.yaml
 backups/*.sql
+backups/*.sql.gz
+backups/*.tar.gz
+public/uploads/**
+!public/uploads/.gitkeep
 
 # vercel
 .vercel

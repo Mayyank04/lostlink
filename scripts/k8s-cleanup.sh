@@ -14,3 +14,4 @@ echo -e "${BOLD}${YELLOW}==> Deleting k3d cluster '${CLUSTER_NAME}'...${RESET}"
 k3d cluster delete "${CLUSTER_NAME}"
 
 echo -e "${BOLD}==> Cluster '${CLUSTER_NAME}' deleted successfully.${RESET}"
+

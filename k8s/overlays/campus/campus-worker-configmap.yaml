@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lostlink-campus-worker-config
+  namespace: lostlink-campus
+  labels:
+    app.kubernetes.io/name: lostlink-campus-worker
+    app.kubernetes.io/component: worker
+data:
+  # Public Cloud API endpoint reached via outbound TLS (Port 443)
+  LOSTLINK_API_BASE_URL: "http://lostlink-web.lostlink.svc.cluster.local:3000"
+  CAMPUS_WORKER_ID: "worker-apex-edge-01"
+  CAMPUS_COLLEGE_ID: "college-apex"
+  CAMPUS_POLL_INTERVAL_MS: "3000"
+  CAMPUS_HEALTH_PORT: "3002"

@@ -1,0 +1,54 @@
+# ==============================================================================
+# LOSTLINK 2.0 — DEDICATED CAMPUS MATCHING AGENT CONTAINER
+# Phase 5 Cloud-Native Campus Edge Worker
+# ==============================================================================
+
+# STAGE 1: Dependencies & Prisma Generation
+FROM node:20-slim AS deps
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openssl \
+    ca-certificates \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY package.json package-lock.json ./
+COPY prisma ./prisma
+
+RUN npm ci && npx prisma generate
+
+# STAGE 2: Minimal Campus Agent Runtime
+FROM node:20-slim AS runner
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openssl \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV NODE_ENV=production
+ENV CAMPUS_HEALTH_PORT=3002
+ENV PATH="/app/node_modules/.bin:$PATH"
+
+# Non-root unprivileged execution
+RUN groupadd --system --gid 1001 nodejs && \
+    useradd --system --uid 1001 -g nodejs nextjs
+
+COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
+COPY --from=deps --chown=nextjs:nodejs /app/prisma ./prisma
+COPY --chown=nextjs:nodejs package.json tsconfig.json ./
+COPY --chown=nextjs:nodejs src ./src
+COPY --chown=nextjs:nodejs worker ./worker
+
+USER nextjs
+
+EXPOSE 3002
+
+HEALTHCHECK --interval=15s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:3002/healthz || exit 1
+
+CMD ["tsx", "worker/campusWorker.ts"]

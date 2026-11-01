@@ -127,3 +127,4 @@ flowchart TD
 * **Workload Pods:** 4 active pods in healthy state (2 Web, 1 Worker, 1 Postgres).
 * **Ingress Latency:** ~1ms to 2ms database ping latency over Traefik ingress.
 * **Load Test Baseline:** 200 req/sec at 100% success rate under 20 concurrent connections.
+

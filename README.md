@@ -3,13 +3,14 @@
 ![Next.js](https://img.shields.io/badge/Next.js-14.2-black?logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue?logo=typescript)
 ![Docker](https://img.shields.io/badge/Docker-Multi--Stage-2496ED?logo=docker)
-![Kubernetes](https://img.shields.io/badge/Kubernetes-k3d%20%2F%20k3s-326CE5?logo=kubernetes)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-K3s%20%2F%20k3d-326CE5?logo=kubernetes)
+![Architecture](https://img.shields.io/badge/Architecture-Hybrid--Cloud%20Edge-success?logo=wireguard)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql)
-![Vitest](https://img.shields.io/badge/Tests-54%20Passing-success?logo=vitest)
+![Vitest](https://img.shields.io/badge/Tests-60%20Passing-success?logo=vitest)
 
 > **Tagline:** "Lost something? Let's find it together."  
 > **Course / Academic Module:** Cloud Computing Module IV PBL Project  
-> **Architecture:** Cloud-Native Micro-Tiered Architecture (Next.js Standalone + Dedicated Worker + PostgreSQL StatefulSet + Traefik Ingress + HPA Autoscaling)
+> **Architecture:** Hybrid-Cloud Distributed Architecture (Public Cloud K3s VPS + Campus Edge Matching Agents + Outbound HTTPS Zero-Inbound-Port REST Protocol)
 
 ---
 
@@ -347,28 +348,59 @@ Access Points:
 
 ---
 
-## 11. Complete Phase 4 Documentation Guides
+## 11. Phase 5: Hybrid-Cloud & Edge Architecture
+
+Phase 5 extends LostLink 2.0 into a real distributed **Hybrid-Cloud Architecture**:
+- **Environment A (Public Cloud VPS)**: Runs Next.js 14 web app, PostgreSQL, Traefik Ingress with automatic Let's Encrypt TLS certificates, and a cloud fallback watchdog daemon.
+- **Environment B (Private College Edge Node)**: Runs a dedicated campus matching worker on university hardware or campus VMs behind firewalls.
+- **Outbound-Only Protocol**: The campus agent requires **zero inbound firewall ports** or static IPs; it polls `/api/hybrid/jobs/lease` outbound over HTTPS.
+- **Zero-Knowledge Privacy Boundary**: Student PII and private ownership evidence are never transmitted across the hybrid link.
+- **Automated Failover & Split-Brain Elimination**: If the campus agent disconnects, the cloud fallback worker reclaims orphaned jobs after a 30s TTL. Delayed submissions are atomically rejected, guaranteeing zero duplicate match records.
+
+### Running the Live Hybrid Failover Benchmark
+```bash
+# Execute automated 4-stage hybrid failover benchmark
+./scripts/test-hybrid-failover.sh
+
+# Monitor real-time queue depth and campus worker heartbeat metrics
+./scripts/check-hybrid-status.sh
+
+# Test non-destructive database backup & restore drill
+./scripts/restore-test.sh
+```
+
+---
+
+## 12. Complete Phase 5 Documentation Guides
 
 Comprehensive documentation is provided in the `docs/` directory:
 
-1. [**Phase 4 Infrastructure Specification**](docs/PHASE4_INFRASTRUCTURE.md) — Detailed topology diagrams, resource allocations, network isolation, and microservices decoupling.
-2. [**Kubernetes Operations Guide**](docs/KUBERNETES_GUIDE.md) — Apple Silicon Mac setup, cluster lifecycle commands, and troubleshooting runbook.
-3. [**Horizontal Scaling & Load Test Report**](docs/SCALING_TEST_REPORT.md) — Manual scaling benchmarks, HPA dynamic scaling, and 200 req/sec load testing evidence.
-4. [**Production Cloud Cost Optimization**](docs/COST_OPTIMIZATION.md) — Cost comparison matrix across VPS, Managed K8s (EKS/GKE), and Serverless (Cloud Run + Neon), with university budget recommendations.
-5. [**Backup & Disaster Recovery Runbook**](docs/BACKUP_RESTORE.md) — RPO/RTO targets, scripted backup/restoration steps, and recovery playbooks.
-6. [**Phase 4 Test Report & Viva Preparation**](docs/PHASE4_TEST_REPORT.md) — Full verification matrix and 10 detailed architecture viva questions and answers.
+1. [**Phase 5 Deployment Plan**](docs/PHASE5_DEPLOYMENT_PLAN.md) — Architectural overview, deployment milestones, and verification gates.
+2. [**Public Cloud Deployment Guide**](docs/PUBLIC_CLOUD_DEPLOYMENT.md) — Ubuntu 24.04 VPS hardening, K3s installation, cert-manager Let's Encrypt TLS, and custom domain setup.
+3. [**Hybrid-Cloud Architecture Specification**](docs/HYBRID_CLOUD_ARCHITECTURE.md) — Public vs. Private topology, zero-inbound-port protocol, distributed state machine, and data minimization boundary.
+4. [**Campus Worker Installation Manual**](docs/CAMPUS_WORKER_SETUP.md) — IT administrator manual for deploying the edge agent via Docker Compose, Systemd, or Kubernetes.
+5. [**Hybrid Failover Benchmark Report**](docs/HYBRID_FAILOVER_TEST.md) — Verified benchmark logs demonstrating sub-10ms matching, automated cloud fallback, and split-brain rejection.
+6. [**Phase 5 Cost Analysis & ROI**](docs/PHASE5_COST_ANALYSIS.md) — Cost comparison in USD & INR (₹84.50/$) proving 93.1% savings vs. AWS EKS.
+7. [**Production Security Checklist**](docs/PRODUCTION_SECURITY_CHECKLIST.md) — Defense-in-depth security matrix, UFW rules, machine key SHA-256 auth, and key revocation runbook.
+8. [**Backup & Disaster Recovery Runbook**](docs/BACKUP_RECOVERY.md) — RPO < 1hr, RTO < 5min targets, automated daily CronJobs, and offsite disaster recovery playbook.
+9. [**Phase 5 Verification & Test Report**](docs/PHASE5_TEST_REPORT.md) — Complete audit evidence matrix covering all 60 passing tests and zero regressions.
+10. [**PBL Demonstration & Viva Guide**](docs/PBL_DEMONSTRATION_GUIDE.md) — Step-by-step 5-minute presentation script with **25 beginner-friendly viva questions and answers**.
 
 ---
 
-## 12. Continuous Integration & Multi-Architecture Delivery
+## 13. Continuous Integration & Multi-Architecture Delivery
 
 - **CI Pipeline (`.github/workflows/ci.yml`):** Runs on push and pull requests, executing linting, TypeScript compilation, Vitest test suites, and Next.js production builds.
-- **Multi-Architecture Build (`.github/workflows/docker-publish.yml`):** Automatically compiles and publishes Docker images for both `linux/amd64` and `linux/arm64` to GitHub Container Registry (`ghcr.io`).
+- **Staging Pipeline (`.github/workflows/staging-deploy.yml`):** Automatically tests and validates Kustomize overlays and builds staging images.
+- **Production Pipeline (`.github/workflows/production-deploy.yml`):** Gated production workflow pushing immutable SHA-tagged images to GHCR and deploying to Kubernetes with automatic rollback.
 
 ---
 
-## 13. Git Feature Branch & Submission
+## 14. Git Feature Branch & Submission
 
 - **Repository:** `https://github.com/Mayyank04/lostlink`
+- **Phase 5 Feature Branch:** `phase-5-hybrid-cloud`
 - **Phase 4 Feature Branch:** `phase-4-cloud-native`
+- **Phase 3 Feature Branch:** `phase-3-recovery`
+- **Phase 2 Feature Branch:** `phase-2-backend`
 - **Main Branch:** `main`

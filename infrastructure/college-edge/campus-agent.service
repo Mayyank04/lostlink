@@ -1,0 +1,38 @@
+[Unit]
+Description=LostLink 2.0 College Edge Matching Agent
+Documentation=https://github.com/Mayyank04/lostlink
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=lostlink
+Group=lostlink
+WorkingDirectory=/opt/lostlink-agent
+EnvironmentFile=/etc/lostlink/campus-agent.env
+
+# Outbound only: Connects to public cloud over HTTPS
+ExecStart=/usr/local/bin/node /opt/lostlink-agent/node_modules/.bin/tsx worker/campusWorker.ts
+
+Restart=always
+RestartSec=5s
+KillMode=mixed
+TimeoutStopSec=20s
+
+# Security sandboxing
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/opt/lostlink-agent/logs /tmp
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+NoNewPrivileges=true
+CapabilityBoundingSet=
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lostlink-campus-agent
+
+[Install]
+WantedBy=multi-user.target

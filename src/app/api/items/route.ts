@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth/session';
 import { requireAuth, requireCollegeMembership, errorResponse } from '@/lib/auth/tenant';
 import { triggerMatchingEngineForItem } from '@/lib/matching/matchEngine';
+import { enqueueMatchingJob } from '@/lib/hybrid/queue';
 import { ItemReportType, ItemStatus } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
@@ -229,6 +230,10 @@ export async function POST(req: Request) {
 
     triggerMatchingEngineForItem(createdItem.id).catch((err) =>
       console.error('Match engine execution failed:', err)
+    );
+
+    enqueueMatchingJob(createdItem.id).catch((err) =>
+      console.error('[HybridQueue] Failed to enqueue matching job:', err)
     );
 
     return NextResponse.json(

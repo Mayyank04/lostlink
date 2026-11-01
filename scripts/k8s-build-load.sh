@@ -19,3 +19,4 @@ echo -e "${BOLD}${BLUE}==> Step 2: Importing images into k3d cluster '${CLUSTER_
 k3d image import lostlink-web:latest lostlink-worker:latest -c "${CLUSTER_NAME}"
 
 echo -e "${BOLD}${GREEN}==> Images successfully imported into cluster!${RESET}"
+

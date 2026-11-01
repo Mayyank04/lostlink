@@ -28,3 +28,4 @@ kubectl cluster-info
 echo ""
 kubectl get nodes -o wide
 echo -e "${BOLD}${GREEN}==> Cluster '${CLUSTER_NAME}' is ready!${RESET}"
+

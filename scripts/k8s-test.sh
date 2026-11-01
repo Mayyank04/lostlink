@@ -60,3 +60,4 @@ echo -e "${DB_STATS}"
 echo -e "${GREEN}✓ Database state verified successfully!${RESET}\n"
 
 echo -e "${BOLD}${GREEN}==> ALL KUBERNETES TESTS PASSED SUCCESSFULLY!${RESET}"
+

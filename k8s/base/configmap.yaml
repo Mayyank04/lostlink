@@ -15,3 +15,4 @@ data:
   STORAGE_DRIVER: "local"
   UPLOAD_DIR: "/app/public/uploads"
   OUTBOX_POLL_INTERVAL_MS: "2500"
+

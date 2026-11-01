@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lostlink-config
+  namespace: lostlink
+data:
+  NODE_ENV: "production"
+  NEXTAUTH_URL: "https://lostlink.edu"
+  STORAGE_DRIVER: "s3"
+  S3_BUCKET: "lostlink-production-uploads"
+  S3_REGION: "us-east-1"

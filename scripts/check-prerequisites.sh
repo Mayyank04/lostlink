@@ -69,3 +69,4 @@ fi
 
 echo "------------------------------------------------------------------"
 echo -e "${GREEN}All local cloud infrastructure prerequisites satisfied!${RESET}"
+

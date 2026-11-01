@@ -28,3 +28,4 @@ kubectl rollout status deployment/lostlink-worker -n "${NAMESPACE}" --timeout=90
 
 echo -e "${BOLD}${GREEN}==> All LostLink 2.0 workloads are active and healthy!${RESET}"
 kubectl get pods,svc,ingress,hpa -n "${NAMESPACE}"
+
