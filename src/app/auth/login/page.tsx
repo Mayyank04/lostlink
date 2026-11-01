@@ -12,30 +12,30 @@ import { MOCK_USERS } from '@/data/mockData';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { loginAs, switchUser } = useAuth();
+  const { login, loginAs, switchUser } = useAuth();
   const { success, error } = useToast();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    setTimeout(() => {
-      const ok = loginAs(email);
-      if (ok) {
+    try {
+      const res = await login(email, password);
+      if (res.success) {
         success('Signed In Successfully', `Welcome back to LostLink 2.0.`);
         router.push('/dashboard');
       } else {
-        // Fallback for demo: login as student
-        switchUser('user-maya');
-        success('Demo Sign-In', 'Signed in as student Maya Lin.');
-        router.push('/dashboard');
+        error('Sign In Failed', res.error || 'Invalid email or password.');
       }
+    } catch {
+      error('Network Error', 'Could not communicate with authentication server.');
+    } finally {
       setIsLoading(false);
-    }, 400);
+    }
   };
 
   const handleQuickLogin = (userId: string) => {

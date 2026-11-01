@@ -1,0 +1,390 @@
+// ==============================================================================
+// LOSTLINK 2.0 — PRISMA SCHEMA DEFINITION
+// Cloud Computing Module IV PBL Project
+// Multi-College Lost & Found Architecture
+// ==============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------------------------------------------------------------
+// ENUMS
+// ------------------------------------------------------------------------------
+
+enum CollegeStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+enum UserRole {
+  STUDENT
+  COLLEGE_MODERATOR
+  COLLEGE_ADMIN
+  PLATFORM_ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING
+}
+
+enum MembershipStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  SUSPENDED
+}
+
+enum ItemReportType {
+  LOST
+  FOUND
+}
+
+enum ItemStatus {
+  OPEN
+  POTENTIAL_MATCH
+  CLAIM_PENDING
+  RESOLVED
+  RETURNED
+  CLOSED
+}
+
+enum ClaimStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
+// ------------------------------------------------------------------------------
+// COLLEGE & CAMPUS HIERARCHY
+// ------------------------------------------------------------------------------
+
+model College {
+  id           String        @id @default(cuid())
+  name         String
+  slug         String        @unique
+  emailDomains String[]      // Array of officially approved domains, e.g. ["apex.edu"]
+  logoUrl      String?
+  city         String
+  state        String
+  country      String        @default("United States")
+  primaryColor String        @default("#0F766E")
+  status       CollegeStatus @default(ACTIVE)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  campuses     Campus[]
+  memberships  CollegeMembership[]
+  items        Item[]
+  auditLogs    AuditLog[]
+
+  @@index([status])
+  @@index([slug])
+}
+
+model Campus {
+  id                 String           @id @default(cuid())
+  collegeId          String
+  name               String
+  code               String
+  addressLabel       String
+  lostFoundDeskRoom  String           @default("Main Security / Desk")
+  operatingHours     String           @default("Mon - Fri: 8:00 AM - 6:00 PM")
+  contactEmail       String           @default("lostfound@campus.edu")
+  status             String           @default("ACTIVE")
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  college            College          @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  locations          CampusLocation[]
+  items              Item[]
+
+  @@unique([collegeId, code])
+  @@index([collegeId])
+}
+
+model CampusLocation {
+  id           String   @id @default(cuid())
+  campusId     String
+  name         String
+  building     String
+  floorLabel   String?
+  locationType String   @default("building") // library, building, canteen, gym, etc.
+  hasDesk      Boolean  @default(false)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  campus       Campus   @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  items        Item[]
+
+  @@index([campusId])
+  @@index([building])
+}
+
+// ------------------------------------------------------------------------------
+// USER & MEMBERSHIP ARCHITECTURE
+// ------------------------------------------------------------------------------
+
+model User {
+  id            String     @id @default(cuid())
+  name          String
+  email         String     @unique
+  emailVerified DateTime?
+  passwordHash  String?
+  image         String?
+  role          UserRole   @default(STUDENT)
+  status        UserStatus @default(ACTIVE)
+  phone         String?
+  department    String?
+  gradYear      Int?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  memberships   CollegeMembership[]
+  reportedItems Item[]             @relation("UserReportedItems")
+  claims        Claim[]            @relation("UserClaims")
+  notifications Notification[]
+  sessions      Session[]
+  auditLogs     AuditLog[]         @relation("ActorAuditLogs")
+
+  @@index([email])
+  @@index([role])
+}
+
+model CollegeMembership {
+  id                String           @id @default(cuid())
+  userId            String
+  collegeId         String
+  studentIdentifier String?          // Private student ID (never exposed publicly)
+  verificationMethod String          @default("EMAIL_DOMAIN")
+  status            MembershipStatus @default(VERIFIED)
+  verifiedAt        DateTime?        @default(now())
+  verifiedBy        String?          @default("SYSTEM")
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  college           College          @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, collegeId])
+  @@index([userId])
+  @@index([collegeId])
+  @@index([status])
+}
+
+// ------------------------------------------------------------------------------
+// ITEMS, MEDIA & PRIVATE EVIDENCE
+// ------------------------------------------------------------------------------
+
+model Item {
+  id                   String          @id @default(cuid())
+  reportNumber         String          @unique // e.g. "LL-2026-8812" or "FD-2026-3021"
+  reporterId           String
+  collegeId            String
+  campusId             String
+  locationId           String?
+  locationBuilding     String
+  locationSpecifics    String?
+  type                 ItemReportType  // LOST or FOUND (immutable)
+  name                 String
+  category             String          // electronics, keys, bags, etc.
+  brand                String?
+  color                String
+  secondaryColor       String?
+  description          String
+  occurredAt           DateTime
+  reportedAt           DateTime        @default(now())
+  status               ItemStatus      @default(OPEN)
+  depositedWithOffice  Boolean         @default(false)
+  officeLocationNotes  String?
+  viewsCount           Int             @default(0)
+  isArchived           Boolean         @default(false)
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  reporter             User            @relation("UserReportedItems", fields: [reporterId], references: [id], onDelete: Cascade)
+  college              College         @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  campus               Campus          @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  location             CampusLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+
+  images               ItemImage[]
+  privateEvidence      PrivateItemEvidence?
+  lostMatches          Match[]         @relation("LostItemMatches")
+  foundMatches         Match[]         @relation("FoundItemMatches")
+  claims               Claim[]
+
+  @@index([collegeId])
+  @@index([campusId])
+  @@index([type])
+  @@index([status])
+  @@index([category])
+  @@index([occurredAt])
+  @@index([reportNumber])
+}
+
+model ItemImage {
+  id          String   @id @default(cuid())
+  itemId      String
+  objectKey   String
+  url         String
+  contentType String   @default("image/jpeg")
+  fileSize    Int      @default(0)
+  visibility  String   @default("PUBLIC") // PUBLIC or PRIVATE_EVIDENCE
+  createdAt   DateTime @default(now())
+
+  item        Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId])
+}
+
+model PrivateItemEvidence {
+  id                String   @id @default(cuid())
+  itemId            String   @unique
+  encryptedEvidence String   // Serial snippet, lockscreen clues, secret markings in JSON/cipher
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  item              Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+}
+
+// ------------------------------------------------------------------------------
+// MATCHING & CLAIMS
+// ------------------------------------------------------------------------------
+
+model Match {
+  id          String   @id @default(cuid())
+  lostItemId  String
+  foundItemId String
+  score       Int      // 0 to 100
+  explanation String   // JSON breakdown of 6 dimensions
+  status      String   @default("SUGGESTED") // SUGGESTED, DISMISSED, CLAIMED
+  createdAt   DateTime @default(now())
+
+  lostItem    Item     @relation("LostItemMatches", fields: [lostItemId], references: [id], onDelete: Cascade)
+  foundItem   Item     @relation("FoundItemMatches", fields: [foundItemId], references: [id], onDelete: Cascade)
+
+  @@unique([lostItemId, foundItemId])
+  @@index([lostItemId])
+  @@index([foundItemId])
+  @@index([score])
+}
+
+model Claim {
+  id                       String      @id @default(cuid())
+  referenceNumber          String      @unique // e.g. "CLM-2026-4419"
+  itemId                   String
+  claimantId               String
+  privateEvidenceReference String      // JSON answers to ownership questions
+  additionalProofNotes     String?
+  status                   ClaimStatus @default(PENDING)
+  reviewedBy               String?
+  reviewedAt               DateTime?
+  handoverCode             String?     // 6-digit OTP exchange code
+  handoverLocation         String?
+  claimantConfirmed        Boolean     @default(false)
+  finderConfirmed          Boolean     @default(false)
+  rejectionReason          String?
+  timeline                 String      @default("[]") // JSON array of audit events
+  createdAt                DateTime    @default(now())
+  updatedAt                DateTime    @updatedAt
+
+  item                     Item        @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  claimant                 User        @relation("UserClaims", fields: [claimantId], references: [id], onDelete: Cascade)
+
+  @@index([itemId])
+  @@index([claimantId])
+  @@index([status])
+}
+
+// ------------------------------------------------------------------------------
+// NOTIFICATIONS & AUDIT LOGS
+// ------------------------------------------------------------------------------
+
+model Notification {
+  id         String   @id @default(cuid())
+  userId     String
+  type       String   // match_found, claim_received, claim_approved, system_update
+  title      String
+  message    String
+  resourceId String?
+  linkUrl    String?
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  actorId      String?
+  collegeId    String?
+  action       String   // CREATE_REPORT, APPROVE_CLAIM, REJECT_CLAIM, DELETE_REPORT, etc.
+  resourceType String   // ITEM, CLAIM, USER, COLLEGE
+  resourceId   String?
+  metadata     String?  // JSON context (sanitized; no secrets/passwords)
+  ipAddress    String?
+  timestamp    DateTime @default(now())
+
+  actor        User?    @relation("ActorAuditLogs", fields: [actorId], references: [id], onDelete: SetNull)
+  college      College? @relation(fields: [collegeId], references: [id], onDelete: SetNull)
+
+  @@index([actorId])
+  @@index([collegeId])
+  @@index([action])
+  @@index([timestamp])
+}
+
+// ------------------------------------------------------------------------------
+// SESSIONS & AUTH TOKENS
+// ------------------------------------------------------------------------------
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  sessionToken String   @unique
+  expiresAt    DateTime
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([sessionToken])
+}
+
+model VerificationToken {
+  id         String   @id @default(cuid())
+  identifier String   // email
+  token      String   @unique
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  @@unique([identifier, token])
+  @@index([identifier])
+}
+
+model PasswordResetToken {
+  id         String   @id @default(cuid())
+  email      String
+  token      String   @unique
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([email])
+  @@index([token])
+}

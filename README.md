@@ -2,191 +2,318 @@
 
 > **Tagline:** "Lost something? Let's find it together."  
 > **Course / Academic Module:** Cloud Computing Module IV PBL Project  
-> **Deployment Target:** Hybrid-Cloud Architecture on Kubernetes (K8s)
+> **Architecture:** Production Full-Stack Next.js 14 App Router + PostgreSQL + Prisma ORM + Multi-Tenant Security
 
 ---
 
-## 1. Overview & Architecture
+## 1. Executive Summary & Architecture
 
-**LostLink 2.0** is an enterprise multi-college lost-and-found SaaS platform designed to replace fragmented social media chats and bulletin boards with an accountable, privacy-preserving institutional workflow.
+**LostLink 2.0** is an enterprise-grade multi-college lost-and-found SaaS platform designed to replace fragmented social media chats and bulletin boards with a secure, privacy-preserving institutional registry.
 
-Students from participating colleges can report lost belongings, register found property, discover rule-based algorithmic matches, submit zero-knowledge ownership proofs, and coordinate safe custody returns at campus lost & found desks.
+The platform provides multi-institution tenant isolation, deterministic rule-based matching (without paid AI APIs), cryptographic zero-knowledge ownership verification, and an auditable campus custody handover workflow.
 
 ```
-                      ┌────────────────────────────────────────┐
-                      │          LostLink 2.0 Frontend         │
-                      │       Next.js 14 App Router + React    │
-                      │     TypeScript + Tailwind + shadcn     │
-                      └──────────────────┬─────────────────────┘
-                                         │
-                        [ Typed Service / API Boundary ]
-                                         │
-        ┌────────────────────────────────┴────────────────────────────────┐
-        ▼ (Current Demo Mode)                                             ▼ (Production Target)
-┌───────────────────────────────┐                       ┌──────────────────────────────────┐
-│  Browser Storage & Memory     │                       │  Kubernetes Pod Deployment       │
-│  - Reactive LocalStore        │                       │  - Node.js / Go REST Backend     │
-│  - Seeded College Fixtures    │                       │  - PostgreSQL + Prisma ORM       │
-│  - In-Browser Matching Engine │                       │  - S3 / MinIO Object Storage     │
-└───────────────────────────────┘                       │  - SAML / OIDC Campus SSO        │
-                                                        └──────────────────────────────────┘
+                           ┌────────────────────────────────────────┐
+                           │          LostLink 2.0 Web Client       │
+                           │       Next.js 14 App Router + React    │
+                           │     TypeScript + Tailwind + shadcn     │
+                           └──────────────────┬─────────────────────┘
+                                              │
+                                 [ HTTP-Only Session Cookies ]
+                                 [ RESTful JSON Route APIs   ]
+                                              │
+                      ┌───────────────────────┴───────────────────────┐
+                      ▼                                               ▼
+         ┌───────────────────────────────┐              ┌──────────────────────────┐
+         │     Next.js API Handlers      │              │ Object Storage Engine    │
+         │   - /api/auth/* (Argon2id)    │              │ - Cloudflare R2 / S3     │
+         │   - /api/items (Isolation)    │              │ - MinIO Local S3 Dev     │
+         │   - /api/claims (Escrow)      │              │ - Local Disk Fallback    │
+         │   - /api/matches (Engine)     │              └──────────────────────────┘
+         │   - /api/admin (RBAC)         │
+         │   - /api/health (K8s Probe)   │
+         └──────────────┬────────────────┘
+                        │
+                  [ Prisma ORM ]
+                        │
+         ┌──────────────┴────────────────┐
+         │ PostgreSQL Relational Cluster │
+         │ - Multi-Tenant Foreign Keys   │
+         │ - Cascade Deletion & Auditing │
+         │ - B-Tree Indexes on Lookups   │
+         └───────────────────────────────┘
 ```
 
 ---
 
 ## 2. Technology Stack
 
-- **Framework:** Next.js 14 (App Router, Server/Client Component Boundaries)
+- **Framework:** Next.js 14 (App Router with Server/Client Component Boundaries)
 - **Language:** TypeScript 5.6 (Strict type safety, zero `any` usage)
-- **Styling & Design System:** Tailwind CSS with custom university tokens (`#0F172A` Navy, `#0F766E` Teal, `#2563EB` Blue)
-- **Icons:** Lucide React
-- **Forms & Validation:** React Hook Form & Zod schemas
-- **Analytics Visualization:** Recharts (Area charts, bar charts, trend analysis)
-- **Persistence & API Layer:** Typed Service Layer with reactive browser local persistence
-- **Testing:** Vitest (Unit tests for matching engine, text normalization, and edge cases)
-- **Containerization:** Production Multi-Stage Dockerfile with non-root security user & K8s healthchecks
+- **Database & ORM:** PostgreSQL 16 with Prisma ORM 6.4.1
+- **Password Security:** Argon2id (`argon2` v0.45.1) conforming to OWASP parameters (19 MiB memory, 2 iterations, 1 parallelism)
+- **Sessions & JWT:** Encrypted & Signed HTTP-only session cookies via `jose` (HS256) backed by the database `Session` model for revokability
+- **Validation:** Zod v4 schemas for all incoming API payloads and environment variables
+- **Object Storage:** Abstraction layer supporting Cloudflare R2, MinIO S3, and local filesystem storage with MIME validation, 10MB limits, and filename sanitization
+- **Rate Limiting:** Sliding-window in-memory rate limiting on auth endpoints to prevent brute-force attacks
+- **Testing:** Vitest 2.1.8 with automated unit and integration tests across database constraints, authentication, tenant isolation, and storage security
+- **Containerization & Deployment:** Docker Compose for local development (Postgres 16, MinIO, Mailpit) and production multi-stage Dockerfile for Kubernetes
 
 ---
 
-## 3. Core Features & Capabilities
+## 3. Multi-College Tenant Isolation Model
 
-### Multi-College Campus Hierarchy
-- **Apex University of Science & Technology:** STEM North Campus & Health South Campus
-- **Horizon Institute of Technology:** Innovation Campus & Media West Campus
-- **Pacific Coast State University:** Oceanview Campus & Downtown Metro Center
-- Public directory discovery allows cross-campus searching for transit/bus losses, while private administrative features and custody desks are strictly scoped by institution.
+LostLink is built from the ground up for strict multi-institution data isolation:
 
-### Deterministic, Explainable Matching Engine (100-Point Model)
-LostLink eliminates hallucination and paid AI API dependency by executing deterministic weighted scoring:
-- **Category Match:** 25 points (hard filter requirement)
-- **Name & Title Similarity:** 25 points (Jaccard token set similarity with stopword filtering)
-- **Primary & Secondary Color:** 15 points
-- **Brand / Manufacturer:** 10 points (handles unspecified brands neutrally)
-- **Campus Facility Proximity:** 15 points (same building: 15 pts, same campus: 10 pts, cross-college: 0 pts)
-- **Timeline Plausibility:** 10 points (checks whether found date occurs after lost date)
-- *Total Score: 0 – 100 with High (75%+), Medium (50-74%), and Low tiers.*
-
-### Zero-Knowledge Ownership Verification Escrow
-- When reporting a lost item, users record private clues (unique scratches, serial number snippets, lockscreen wallpapers, pocket contents).
-- **These details are NEVER exposed publicly or in discovery search.**
-- Claimants must provide these answers independently. Finders and campus custodians evaluate answers to verify genuine ownership before releasing belongings.
-
-### Secure Custody Desk & 6-Digit Exchange Code
-- Supports checking "Deposited with Official Campus Lost & Found Office".
-- Automated generation of a 6-digit exchange code shown only to the verified claimant.
-- Campus staff verify student ID and enter the exchange code to conclude the legal custody chain.
-- Anti-self-approval rule prevents reporters from approving claims on items they found.
+1. **Institutional Domain Matching:** During registration, email domains (`@apex.edu`, `@horizon.edu`, `@pacific.edu`) are validated against the institution's official domains. Matching domains receive `VERIFIED` status; external domains remain `PENDING` until approved by college moderators.
+2. **Server-Side Tenant Enforcement:** All write operations (`POST /api/items`, `POST /api/claims`, `PATCH /api/items/[id]`) execute server-side verification using `requireCollegeMembership(user, collegeId)`. Cross-college item injection is rejected with `HTTP 403 Forbidden`.
+3. **Role-Based Access Control (RBAC):**
+   - **`STUDENT`:** Can report items and initiate ownership claims within their verified college; can browse public items across campuses.
+   - **`COLLEGE_MODERATOR` / `COLLEGE_ADMIN`:** Scoped administrative authority strictly limited to their own college. They can review pending claims, verify student IDs, moderate reports, and inspect institution analytics.
+   - **`PLATFORM_ADMIN`:** Global infrastructure oversight, cross-college diagnostics, and institution lifecycle management.
+4. **Data Isolation in Queries:** Normal discovery queries never leak private items or unverified membership data across colleges.
 
 ---
 
-## 4. Reusable Component Directory
+## 4. PostgreSQL Database Schema (15 Prisma Models)
 
-| Component | Path | Description |
-|---|---|---|
-| `Navbar` | `src/components/common/Navbar.tsx` | Responsive header with logo, college selector, notifications bell, theme switch, role switcher |
-| `Footer` | `src/components/common/Footer.tsx` | University partner directory, PBL notice, legal links |
-| `CollegeSwitcher` | `src/components/common/CollegeSwitcher.tsx` | Interactive scope switcher for colleges and campus branches |
-| `RoleSwitcher` | `src/components/common/RoleSwitcher.tsx` | Demo persona toggler (Student Owner, Finder, College Admin, Platform Admin) |
-| `StatusBadge` | `src/components/common/StatusBadge.tsx` | Visual differentiation for Lost, Found, Matched, Pending Claim, Returned |
-| `ItemCard` | `src/components/items/ItemCard.tsx` | Safe public card supporting responsive Grid and List layouts |
-| `MatchScore` | `src/components/matching/MatchScore.tsx` | Radial gauge and badge visualizing 0-100 match confidence |
-| `MatchComparison` | `src/components/matching/MatchComparison.tsx` | Side-by-side comparison with explainable dimension scores |
-| `ClaimForm` | `src/components/claims/ClaimForm.tsx` | Ownership verification questions and anti-self-claim protection |
-| `ClaimStatusTimeline` | `src/components/claims/ClaimStatusTimeline.tsx` | Custody audit trail with timestamps and actor roles |
-| `HandoverModal` | `src/components/claims/HandoverModal.tsx` | 6-digit code exchange and physical return verification |
-| `MultiStepReportForm` | `src/components/reports/MultiStepReportForm.tsx` | 4-step wizard with validation, image uploads, and immediate match alerts |
-| `PhotoUploader` | `src/components/reports/PhotoUploader.tsx` | Drag-and-drop image uploader with local blob previews and sample presets |
-| `StatCard` | `src/components/analytics/StatCard.tsx` | Metrics card with semantic colored variants and trend indicators |
-| `CategoryBreakdownChart` | `src/components/analytics/AnalyticsCharts.tsx` | Recharts bar chart showing loss vs recovery per category |
-| `MonthlyRecoveryChart` | `src/components/analytics/AnalyticsCharts.tsx` | Recharts gradient area chart visualizing recovery rates |
+The database schema (`prisma/schema.prisma`) implements 15 normalized relational models:
+
+```mermaid
+erDiagram
+    College ||--o{ Campus : contains
+    College ||--o{ CollegeMembership : has
+    College ||--o{ Item : registers
+    Campus ||--o{ CampusLocation : houses
+    Campus ||--o{ Item : locates
+    User ||--o{ CollegeMembership : holds
+    User ||--o{ Item : reports
+    User ||--o{ Claim : submits
+    User ||--o{ Session : creates
+    User ||--o{ Notification : receives
+    User ||--o{ AuditLog : generates
+    Item ||--o{ ItemImage : displays
+    Item ||--o| PrivateItemEvidence : protects
+    Item ||--o{ Match : lost_matches
+    Item ||--o{ Match : found_matches
+    Item ||--o{ Claim : targets
+```
+
+### Key Models & Security Considerations:
+- **`College`:** `id`, `name`, `slug` (unique), `emailDomains` (array), `logoUrl`, `city`, `state`, `status` (`PENDING`, `ACTIVE`, `SUSPENDED`).
+- **`Campus` & `CampusLocation`:** Hierarchical facilities mapping buildings, floors, and official custody desks.
+- **`User`:** `id`, `name`, `email` (unique), `emailVerified`, `passwordHash` (Argon2id), `role` (`STUDENT`, `COLLEGE_MODERATOR`, `COLLEGE_ADMIN`, `PLATFORM_ADMIN`), `status` (`ACTIVE`, `SUSPENDED`).
+- **`CollegeMembership`:** Scoped membership linking user and college, with verification tracking (`VERIFIED`, `PENDING`, `REJECTED`, `SUSPENDED`).
+- **`Item`:** `reportNumber` (unique), `type` (`LOST` or `FOUND`), `name`, `category`, `brand`, `color`, `description`, `occurredAt`, `locationBuilding`, `status` (`OPEN`, `CLAIM_PENDING`, `RETURNED`, `CLOSED`), `depositedWithOffice`.
+- **`PrivateItemEvidence`:** **Isolated 1-to-1 table.** Stores encrypted/serialized verification secrets (serial numbers, engravings, lockscreen details). **Never joined or sent in public listing queries.**
+- **`Match`:** Stores deterministic 0-100 similarity scores and detailed breakdown between lost and found items.
+- **`Claim`:** Manages ownership claims, answers to verification questions, handover exchange codes, and audit timelines.
+- **`AuditLog`:** Immutable audit trail recording actor, action, resource, timestamp, and sanitized metadata.
+- **`Session`:** Stores database tokens with expiration dates, IP addresses, and user-agent details for revokable session management.
 
 ---
 
-## 5. Getting Started & Setup
+## 5. Complete REST API Catalog
+
+All endpoints are implemented as native Next.js 14 App Router Route Handlers under `/api/*`:
+
+### Authentication & Identity
+| Endpoint | Method | Auth | Description |
+|---|---|---|---|
+| `/api/auth/register` | `POST` | Public | Register student, validate domain, hash password with Argon2id, create session |
+| `/api/auth/login` | `POST` | Public | Authenticate credentials, check suspension, set HTTP-only cookie |
+| `/api/auth/logout` | `POST` | Auth | Invalidate database session and clear cookie |
+| `/api/auth/me` | `GET` | Optional | Return current authenticated user profile and college memberships |
+| `/api/auth/verify-college` | `POST` | Auth | Verify institutional email OTP or student ID card |
+| `/api/auth/forgot-password` | `POST` | Public | Generate timed password reset token |
+| `/api/auth/reset-password` | `POST` | Public | Verify reset token and update password hash |
+
+### Colleges & Campuses
+| Endpoint | Method | Auth | Description |
+|---|---|---|---|
+| `/api/colleges` | `GET` | Public | List active colleges with campus count and active item statistics |
+| `/api/colleges/[id]` | `GET` | Public | Retrieve college details, campuses, and registered facilities |
+| `/api/campuses/[id]/locations` | `GET` | Public | List specific buildings and drop-off points for a campus |
+
+### Items & Reports
+| Endpoint | Method | Auth | Description |
+|---|---|---|---|
+| `/api/items` | `GET` | Public | Search directory (filters: `type`, `collegeId`, `campusId`, `category`, `status`, `search`, pagination). Excludes private evidence. |
+| `/api/items` | `POST` | Member | Create lost/found report. Requires active college membership. Isolates private evidence into secure table and triggers matching engine. |
+| `/api/items/[id]` | `GET` | Public | Retrieve item details. Returns private evidence **only** if requester is owner or authorized moderator. |
+| `/api/items/[id]` | `PATCH` | Owner/Admin | Update item status (`RETURNED`, `CLOSED`) or details. |
+| `/api/items/[id]` | `DELETE` | Owner/Admin | Soft-delete report (sets status to `CLOSED`). |
+
+### Claims & Escrow Handover
+| Endpoint | Method | Auth | Description |
+|---|---|---|---|
+| `/api/claims` | `GET` | Auth | List user's submitted claims or received claims on their found items (or college-wide for admins). |
+| `/api/claims` | `POST` | Auth | Submit ownership verification claim with private proof on a found item. |
+| `/api/claims/[id]` | `PATCH` | Finder/Admin | Approve or reject claim. Sets item to `RETURNED` upon approval and generates audit logs. |
+
+### Matching Engine & Notifications
+| Endpoint | Method | Auth | Description |
+|---|---|---|---|
+| `/api/matches` | `GET` | Auth | Retrieve calculated matches for user's reports or institution. |
+| `/api/matches/[id]/dismiss` | `POST` | Party/Admin | Mark suggested match as dismissed. |
+| `/api/notifications` | `GET` | Auth | Get user notifications with unread counter. |
+| `/api/notifications/[id]/read`| `PATCH` | Auth | Mark single notification as read. |
+| `/api/notifications/read-all` | `POST` | Auth | Mark all user notifications as read. |
+
+### File Storage & System Operations
+| Endpoint | Method | Auth | Description |
+|---|---|---|---|
+| `/api/uploads` | `POST` | Auth | Multipart image upload. Validates MIME type, enforces 10MB limit, sanitizes filename. |
+| `/api/dashboard/stats` | `GET` | Optional | Real database counts for lost, found, returned items, and pending claims. |
+| `/api/dashboard/activity` | `GET` | Optional | Recent reports and suggested matches. |
+| `/api/users/me/items` | `GET` | Auth | List reports created by current authenticated user. |
+| `/api/admin/stats` | `GET` | Admin | Institutional metrics (resolution rate, members, active reports). |
+| `/api/admin/reports` | `GET` | Admin | Complete institution report catalog for moderation. |
+| `/api/admin/memberships` | `GET` | Admin | Pending and active student membership requests. |
+| `/api/admin/memberships/[id]` | `PATCH` | Admin | Approve (`VERIFIED`) or suspend membership. |
+| `/api/health` | `GET` | Public | Kubernetes readiness/liveness probe checking PostgreSQL latency. |
+
+---
+
+## 6. Object Storage Configuration
+
+LostLink abstracts file storage behind `src/lib/storage/objectStorage.ts`:
+
+- **Local Storage (`STORAGE_PROVIDER=local`):** Default for development. Saves files into `public/uploads/YYYY-MM-DD/` and serves via `/uploads/...`.
+- **MinIO S3 (`STORAGE_PROVIDER=s3`):** S3-compatible local development storage running in Docker Compose (`http://localhost:9000`).
+- **Cloudflare R2 (`STORAGE_PROVIDER=r2`):** Zero-egress production object storage via S3 API.
+
+### Environment Configuration:
+```env
+STORAGE_PROVIDER=local       # 'local' | 's3' | 'r2'
+S3_ENDPOINT=http://localhost:9000
+S3_ACCESS_KEY_ID=minioadmin
+S3_SECRET_ACCESS_KEY=minioadmin
+S3_BUCKET_NAME=lostlink-storage
+S3_REGION=us-east-1
+S3_PUBLIC_URL=http://localhost:9000/lostlink-storage
+```
+
+---
+
+## 7. Local Development Setup Guide
 
 ### Prerequisites
-- Node.js >= 18 (Tested on Node.js v24 & v20)
-- npm >= 9
+- Node.js 18+ or 20+
+- PostgreSQL 14+ (Native or via Docker)
 
-### Installation
+### Option A: Quickstart with Local PostgreSQL
+1. **Clone and Install:**
+   ```bash
+   git clone https://github.com/Mayyank04/lostlink.git
+   cd lostlink
+   npm install
+   ```
+
+2. **Configure Environment:**
+   ```bash
+   cp .env.example .env
+   # Update DATABASE_URL with your PostgreSQL connection string
+   # e.g. DATABASE_URL="postgresql://postgres:postgres@localhost:5432/lostlink_dev?schema=public"
+   ```
+
+3. **Initialize Database Schema:**
+   ```bash
+   npx prisma db push
+   ```
+
+4. **Seed Development Fixtures:**
+   ```bash
+   npm run db:seed
+   ```
+   *Seeds 3 colleges, 6 campuses, locations, Argon2id users (`Password123!`), real items, images, and private evidence.*
+
+5. **Run Automated Test Suite:**
+   ```bash
+   npm test
+   ```
+
+6. **Start Next.js Development Server:**
+   ```bash
+   npm run dev
+   ```
+   Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+---
+
+### Option B: Quickstart with Docker Compose
+To run PostgreSQL, MinIO, and Mailpit together:
 ```bash
-# Clone or navigate to the project directory
-cd "lostlink 2.0"
-
-# Install dependencies
-npm install
-
-# Run matching engine unit tests
-npm test
-
-# Launch local development server
+docker compose up -d
+npm run db:seed
 npm run dev
 ```
-
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+- **Postgres:** `localhost:5432` (db: `lostlink_dev`, user: `lostlink_user`, pass: `lostlink_secure_password_2026`)
+- **MinIO Console:** [http://localhost:9001](http://localhost:9001) (`minioadmin` / `minioadmin`)
+- **Mailpit Web UI:** [http://localhost:8025](http://localhost:8025)
 
 ---
 
-## 6. Testing & Quality Assurance
+## 8. Seeded Test Credentials
 
-LostLink 2.0 includes automated unit tests covering the matching engine algorithm:
+All seeded accounts use password: `Password123!`
 
+| Role | Name | Email | Institution Scope |
+|---|---|---|---|
+| **Student** | Maya Lin | `maya.lin@apex.edu` | Apex University (STEM North Campus) |
+| **Student** | Lucas Vance | `lucas.v@horizon.edu` | Horizon Institute (Innovation Campus) |
+| **College Admin** | Dr. Sarah Jenkins | `admin@apex.edu` | Apex University (Full Admin Scope) |
+| **Platform Admin** | System SuperAdmin | `ops@lostlink.org` | Global Cross-College Oversight |
+
+---
+
+## 9. Automated Testing & Verification
+
+The test suite covers:
+- **`src/tests/db.test.ts`:** Database connectivity, unique constraints on emails, cascade deletion, private evidence isolation.
+- **`src/tests/auth.test.ts`:** Argon2id password hashing, verification, sliding-window rate limiting.
+- **`src/tests/tenant.test.ts`:** Multi-college authorization, cross-college write rejection, admin privileges.
+- **`src/tests/storage.test.ts`:** MIME allowlists, 10MB limits, filename traversal sanitization.
+- **`src/lib/matching/engine.test.ts`:** 100-point deterministic match scoring and date penalties.
+
+Execute tests via:
 ```bash
-# Run all unit tests with Vitest
-npm test
-
-# Run tests in watch mode
-npm run test:watch
-
-# Run TypeScript type check
-npm run typecheck
-
-# Run Next.js production build
-npm run build
+npm test          # Run Vitest test suite
+npm run typecheck # Verify zero TypeScript errors
+npm run build     # Verify full Next.js production build
 ```
 
-### Verified Test Cases:
-1. `Exact match`: High-confidence match (score >= 75%) between MacBook reports.
-2. `Same report type rejection`: Lost vs Lost or Found vs Found returns null.
-3. `Different category penalty`: Category score is 0 and total score is capped at <= 20%.
-4. `Missing attributes`: Graceful fallback scoring when brand or secondary colors are absent.
-5. `Incompatible date order`: Item found weeks before the lost date is penalized to score <= 25%.
-6. `Cross-college penalty`: Matches between different institutions receive 0 location points and are capped at <= 30%.
-7. `Partial match`: Moderate score for matching items with different campus buildings.
-
 ---
 
-## 7. Containerization & Kubernetes Deployment
+## 10. Production Deployment (Docker & Kubernetes)
 
-A production-ready multi-stage `Dockerfile` is provided:
-
+### Production Container Build
 ```bash
-# Build Docker container
-docker build -t lostlink-frontend:latest .
-
-# Run container on port 3000
-docker run -p 3000:3000 lostlink-frontend:latest
+docker build -t lostlink:2.0 .
+docker run -p 3000:3000 --env-file .env lostlink:2.0
 ```
 
-The container runs as non-root user `nextjs` and includes a `HEALTHCHECK` for Kubernetes liveness and readiness probes (`wget --spider http://localhost:3000/`).
+### Kubernetes Readiness & Liveness Probes
+LostLink includes a dedicated `/api/health` route handler reporting database latency:
+```yaml
+livenessProbe:
+  httpGet:
+    path: /api/health
+    port: 3000
+  initialDelaySeconds: 15
+  periodSeconds: 10
+readinessProbe:
+  httpGet:
+    path: /api/health
+    port: 3000
+  initialDelaySeconds: 5
+  periodSeconds: 5
+```
 
 ---
 
-## 8. Explicit List of Remaining Backend Integrations
+## 11. Git Feature Branch & Submission
 
-When connecting the containerized backend on Kubernetes:
-
-1. **Authentication & Session Management:**
-   - Replace demo `AuthContext` with SAML 2.0 / OIDC provider (e.g., Keycloak or university identity provider).
-   - Enforce server-side JWT claims with user `collegeId` and `role`.
-2. **Database Persistence:**
-   - Connect PostgreSQL database using Prisma schema mirroring `/src/types/`.
-   - Migrate report, claim, conversation, message, and notification models.
-3. **Secure Object Storage:**
-   - Replace in-memory Blob URLs in `PhotoUploader` with pre-signed S3 / MinIO upload URLs.
-   - Enforce image MIME-type validation and EXIF metadata stripping for student privacy.
-4. **WebSocket / Server-Sent Events:**
-   - Connect `MessageService` and `NotificationService` to a WebSocket server for live updates.
-5. **Campus Desk Physical Handover Terminal:**
-   - Integrate with barcode/QR scanners at lost-and-found circulation desks for rapid 6-digit code validation.
-
+- **Repository:** `https://github.com/Mayyank04/lostlink`
+- **Phase 2 Feature Branch:** `phase-2-backend`
+- **Main Branch:** `main`

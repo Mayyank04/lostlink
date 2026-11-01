@@ -27,8 +27,17 @@ interface AuthContextType {
   switchCollege: (collegeId: string) => void;
   switchCampus: (campusId: string) => void;
   loginAs: (email: string) => boolean;
+  login: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
+  register: (data: {
+    name: string;
+    email: string;
+    password: string;
+    collegeId: string;
+    studentId?: string;
+  }) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   resetDemoData: () => void;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -37,7 +46,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentUser, setCurrentUser] = useState<User | null>(MOCK_USERS[0]);
   const [activeCollege, setActiveCollege] = useState<College>(MOCK_COLLEGES[0]);
   const [activeCampus, setActiveCampus] = useState<Campus | null>(MOCK_COLLEGES[0].campuses[0]);
+  const [isDemoMode, setIsDemoMode] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+
+  // Checks server session on mount
+  const checkServerSession = async () => {
+    try {
+      const res = await fetch('/api/auth/me', { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.user) {
+          const u = data.user;
+          const userCollegeMembership = u.memberships?.[0];
+          const foundCollege = MOCK_COLLEGES.find((c) => c.id === userCollegeMembership?.collegeId) || MOCK_COLLEGES[0];
+
+          setCurrentUser({
+            id: u.id,
+            name: u.name,
+            email: u.email,
+            avatarUrl: u.image || undefined,
+            role: (u.role === 'PLATFORM_ADMIN'
+              ? 'platform_admin'
+              : u.role === 'COLLEGE_ADMIN' || u.role === 'COLLEGE_MODERATOR'
+              ? 'college_admin'
+              : 'student') as UserRole,
+            collegeId: foundCollege.id,
+            campusId: foundCollege.campuses[0]?.id,
+            isVerified: Boolean(u.emailVerified),
+            joinedAt: new Date().toISOString(),
+          });
+          setActiveCollege(foundCollege);
+          setActiveCampus(foundCollege.campuses[0] || null);
+          setIsDemoMode(false);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('Could not verify server session, using local store:', e);
+    }
+  };
 
   useEffect(() => {
     initStore();
@@ -61,7 +108,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    updateFromStorage();
+    checkServerSession().then(() => {
+      // If no server user was loaded, sync from local storage
+      if (!currentUser || currentUser.id === 'user-maya') {
+        updateFromStorage();
+      }
+    });
+
     const unsubscribe = subscribeToStore(updateFromStorage);
     return () => unsubscribe();
   }, []);
@@ -79,6 +132,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const camp = targetCollege.campuses.find((c) => c.id === targetUser.campusId);
         setActiveCampus(camp || targetCollege.campuses[0]);
       }
+      setIsDemoMode(true);
     }
   };
 
@@ -114,8 +168,57 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return false;
   };
 
+  const login = async (email: string, password?: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password: password || 'Password123!' }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        return { success: false, error: data.error || 'Login failed' };
+      }
+
+      await checkServerSession();
+      return { success: true };
+    } catch {
+      // Fallback to local loginAs
+      const ok = loginAs(email);
+      if (ok) return { success: true };
+      return { success: false, error: 'Network error connecting to backend' };
+    }
+  };
+
+  const register = async (data: {
+    name: string;
+    email: string;
+    password: string;
+    collegeId: string;
+    studentId?: string;
+  }): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      const resData = await res.json();
+      if (!res.ok) {
+        return { success: false, error: resData.error || 'Registration failed' };
+      }
+
+      await checkServerSession();
+      return { success: true };
+    } catch {
+      return { success: false, error: 'Network error connecting to backend' };
+    }
+  };
+
   const logout = () => {
-    // Return to demo student
+    fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
     switchUser('user-maya');
   };
 
@@ -131,14 +234,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         activeCollege,
         activeCampus,
         allColleges: MOCK_COLLEGES,
-        isDemoMode: true,
+        isDemoMode,
         switchUser,
         switchRole,
         switchCollege,
         switchCampus,
         loginAs,
+        login,
+        register,
         logout,
         resetDemoData,
+        refreshUser: checkServerSession,
       }}
     >
       {children}
@@ -153,4 +259,3 @@ export function useAuth() {
   }
   return context;
 }
-

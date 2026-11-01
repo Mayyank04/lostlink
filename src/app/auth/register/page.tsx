@@ -12,7 +12,7 @@ import { ShieldCheck, School } from 'lucide-react';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { allColleges, switchCollege } = useAuth();
+  const { allColleges, switchCollege, register } = useAuth();
   const { success, error } = useToast();
 
   const [name, setName] = useState('');
@@ -22,20 +22,35 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !email.trim()) return;
 
     setIsLoading(true);
-    setTimeout(() => {
-      switchCollege(collegeId);
-      success(
-        'Account Registered',
-        'Verification link sent to your institutional email. Redirecting to verification status...'
-      );
-      router.push(`/auth/verify-college?email=${encodeURIComponent(email)}&college=${collegeId}`);
+    try {
+      const res = await register({
+        name: name.trim(),
+        email: email.trim(),
+        password: password || 'Password123!',
+        collegeId,
+        studentId: studentId.trim() || undefined,
+      });
+
+      if (res.success) {
+        switchCollege(collegeId);
+        success(
+          'Account Registered',
+          'Verification link sent to your institutional email. Redirecting to verification status...'
+        );
+        router.push(`/auth/verify-college?email=${encodeURIComponent(email)}&college=${collegeId}`);
+      } else {
+        error('Registration Failed', res.error || 'Could not create account');
+      }
+    } catch {
+      error('Network Error', 'Could not communicate with registration server.');
+    } finally {
       setIsLoading(false);
-    }, 500);
+    }
   };
 
   return (
