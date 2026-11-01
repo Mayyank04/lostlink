@@ -39,3 +39,4 @@ export function verifyTokenHash(candidateToken: string, storedHash: string): boo
     return false;
   }
 }
+

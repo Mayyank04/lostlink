@@ -535,3 +535,4 @@ runScenario().catch((err) => {
   console.error('Scenario execution failed:', err);
   process.exit(1);
 });
+

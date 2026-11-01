@@ -138,3 +138,4 @@ All 10 test suites passed cleanly with **54 / 54 passing tests**:
 
 ### Q3: How is multi-college tenant isolation enforced?
 > **Answer:** Every report, claim, and audit log belongs to a specific `collegeId`. All Prisma queries enforce tenant filtering in route handlers (`requireAuth` + `requireCollegeMembership`). College moderators can only access custody records matching their university memberships.
+
