@@ -135,3 +135,4 @@ jobs:
           WEB_POD=$(kubectl get pod -n lostlink -l app=lostlink-web -o jsonpath='{.items[0].metadata.name}')
           kubectl exec -n lostlink "${WEB_POD}" -- curl -sf http://localhost:3000/api/health/ready
           echo "[+] Production deployment successful and ready!"
+

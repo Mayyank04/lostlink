@@ -67,3 +67,4 @@ Public cloud providers charge up to \$0.09 per GB of outbound data egress. LostL
 
 ### 4. Automated Storage Tiering
 Image uploads use local disk storage in development and demo tiers, and low-cost S3-compatible Object Storage (e.g. Cloudflare R2 with **\$0 egress fees** or Hetzner Storage Box at €3.81 for 1 TB) in production.
+

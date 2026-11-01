@@ -36,3 +36,4 @@ SyslogIdentifier=lostlink-campus-agent
 
 [Install]
 WantedBy=multi-user.target
+

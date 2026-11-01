@@ -16,3 +16,4 @@ echo "   Cloud Computing Module IV PBL Project                            "
 echo "====================================================================="
 
 npx tsx scripts/run-hybrid-failover-test.ts
+

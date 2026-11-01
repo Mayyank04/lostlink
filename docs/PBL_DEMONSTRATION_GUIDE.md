@@ -155,3 +155,4 @@ When a worker submits results, the transaction verifies the job status is still 
 2. Separate PostgreSQL from the cluster into a **Managed High-Availability Database** (e.g. AWS Aurora or Hetzner Managed Postgres) with read replicas.
 3. Replace the database-backed polling queue with a dedicated distributed event stream like **Apache Kafka** or **NATS JetStream** for sub-millisecond job distribution.
 4. Use **Cloudflare R2** with global CDN caching for item photo uploads with zero egress fees.
+

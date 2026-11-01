@@ -69,3 +69,4 @@ runcmd:
   - chmod 600 /home/lostlink/.kube/config
   # Install cert-manager
   - kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.17.0/cert-manager.yaml
+

@@ -56,3 +56,4 @@ else
   echo "   [FAILURE] One or more probes failed. Check cluster logs.        "
 fi
 echo "====================================================================="
+

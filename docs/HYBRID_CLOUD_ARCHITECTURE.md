@@ -122,3 +122,4 @@ LostLink 2.0 eliminates split-brain conditions through **Atomic Optimistic Concu
    If the job has already been marked `COMPLETED` by the fallback worker, the delayed campus worker's submission is **immediately rejected with HTTP 409 Conflict**.
 3. **Zero Duplicate Matches**:
    Because completions are atomic transactions, duplicate `Match` records cannot be generated under any network partition condition.
+

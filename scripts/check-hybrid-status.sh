@@ -9,3 +9,4 @@ ROOT_DIR="${SCRIPT_DIR}/.."
 
 cd "${ROOT_DIR}"
 npx tsx scripts/check-hybrid-status.ts
+

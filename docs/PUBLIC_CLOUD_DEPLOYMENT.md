@@ -152,3 +152,4 @@ Expected output:
       {"status":"ready","database":"connected","pool":{"total":10,"idle":8}}
 [3/3] Probing Hybrid Worker Status API (/api/hybrid/status)... OK (200)
 ```
+

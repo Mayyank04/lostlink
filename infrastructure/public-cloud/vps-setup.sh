@@ -121,3 +121,4 @@ echo "====================================================================="
 echo "   [SUCCESS] VPS Hardening complete!                                "
 echo "   Next step: Run ./k3s-install.sh to install K3s and cert-manager. "
 echo "====================================================================="
+

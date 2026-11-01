@@ -25,3 +25,4 @@ kubectl get pods -n "${NAMESPACE}" -l app.kubernetes.io/name=lostlink-campus-wor
 echo "====================================================================="
 echo "   [SUCCESS] Campus Edge Worker is running!                         "
 echo "====================================================================="
+

@@ -61,3 +61,4 @@ spec:
             - name: backup-storage
               persistentVolumeClaim:
                 claimName: postgres-data-postgres-0
+

@@ -60,3 +60,4 @@ echo "   [SUCCESS] K3s & cert-manager installed successfully!            "
 echo "   Cluster Nodes:                                                   "
 kubectl get nodes -o wide
 echo "====================================================================="
+

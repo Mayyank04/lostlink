@@ -52,3 +52,4 @@ HEALTHCHECK --interval=15s --timeout=3s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:3002/healthz || exit 1
 
 CMD ["tsx", "worker/campusWorker.ts"]
+

@@ -151,3 +151,4 @@ From the public cloud server, check worker registration and heartbeat timestamps
 ```bash
 ./scripts/check-hybrid-status.sh
 ```
+

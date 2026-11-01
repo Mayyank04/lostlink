@@ -109,3 +109,4 @@ If the public cloud VPS is destroyed or compromised:
    ./scripts/check-public-health.sh https://lostlink.edu
    ```
    **Total Time to Full Recovery: < 4 minutes.**
+

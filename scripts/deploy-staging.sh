@@ -33,3 +33,4 @@ echo "====================================================================="
 echo "   [SUCCESS] Staging deployment is healthy and ready!               "
 echo "====================================================================="
 kubectl get pods -n "${NAMESPACE}"
+

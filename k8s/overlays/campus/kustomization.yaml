@@ -8,3 +8,4 @@ resources:
   - campus-worker-configmap.yaml
   - campus-worker-secret.yaml
   - campus-worker-deployment.yaml
+

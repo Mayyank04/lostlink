@@ -78,3 +78,4 @@ jobs:
           file: docker/Dockerfile.campus-worker
           push: false
           tags: ghcr.io/${{ github.repository }}/lostlink-campus-worker:staging-latest
+

@@ -43,3 +43,4 @@ echo "====================================================================="
 echo "   [SUCCESS] LostLink 2.0 Production rollout complete!              "
 echo "====================================================================="
 kubectl get pods,services,hpa -n "${NAMESPACE}"
+
