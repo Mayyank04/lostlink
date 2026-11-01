@@ -1,0 +1,10 @@
+Service Category,Unoptimized Cloud Architecture (AWS Standard),LostLink 2.0 Hybrid Architecture,Monthly Savings ($),Percentage Reduction
+Kubernetes Compute / Web Tier,"$146.00 (3x c5.large EC2 + EKS Cluster Fee $73)","$12.00 (Single 4 vCPU 8GB RAM VPS / k3s)","$134.00",91.8%
+Database Layer,"$138.00 (AWS RDS PostgreSQL db.m5.large Multi-AZ)","$0.00 (In-Cluster Containerized PostgreSQL StatefulSet with PV)","$138.00",100.0%
+Background Matching Workers,"$72.00 (24/7 Cloud Compute Instances)","$2.50 (Public Standby Daemon on shared VPS resources)","$69.50",96.5%
+Edge Campus Compute,"$0.00 (Not supported in standard cloud)","$0.00 (University lab hardware / zero added cost)","$0.00",0.0%
+AI / Matching Engine,"$180.00 (Paid OpenAI / Cloud LLM API inference fees)","$0.00 (Deterministic Explainable Rule Engine)","$180.00",100.0%
+Object Storage & Image CDN,"$25.00 (AWS S3 Standard + Egress Data Transfer)","$3.50 (Cloudflare R2 / S3 with Zero Egress Fees)","$21.50",86.0%
+Networking / Load Balancer / NAT,"$64.00 (AWS ALB $22 + NAT Gateway $32 + Data)","$0.00 (Traefik Ingress + Cloudflare Free Tier WAF/CDN)","$64.00",100.0%
+Total Monthly Operational Expense,"$625.00 / month","$18.00 / month","$607.00 / month",97.1%
+Annualized Cost (12 Months),"$7,500.00 / year","$216.00 / year","$7,284.00 / year",97.1%

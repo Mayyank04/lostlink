@@ -14,9 +14,8 @@ echo "   Endpoint: ${BASE_URL}                                            "
 echo "====================================================================="
 
 echo -n "[1/3] Probing Liveness Probe (/api/health/live)... "
-LIVE_RESP=$(curl -s -w "\n%{http_code}" "${BASE_URL}/api/health/live" || echo "FAILED\n000")
-LIVE_CODE=$(echo "${LIVE_RESP}" | tail -n1)
-LIVE_BODY=$(echo "${LIVE_RESP}" | head -n -1)
+LIVE_CODE=$(curl -s -o /tmp/ll_live_body.json -w "%{http_code}" "${BASE_URL}/api/health/live" || echo "000")
+LIVE_BODY=$(cat /tmp/ll_live_body.json 2>/dev/null || echo "FAILED")
 
 if [[ "${LIVE_CODE}" == "200" ]]; then
   echo "OK (200)"
@@ -26,9 +25,8 @@ else
 fi
 
 echo -n "[2/3] Probing Readiness Probe (/api/health/ready)... "
-READY_RESP=$(curl -s -w "\n%{http_code}" "${BASE_URL}/api/health/ready" || echo "FAILED\n000")
-READY_CODE=$(echo "${READY_RESP}" | tail -n1)
-READY_BODY=$(echo "${READY_RESP}" | head -n -1)
+READY_CODE=$(curl -s -o /tmp/ll_ready_body.json -w "%{http_code}" "${BASE_URL}/api/health/ready" || echo "000")
+READY_BODY=$(cat /tmp/ll_ready_body.json 2>/dev/null || echo "FAILED")
 
 if [[ "${READY_CODE}" == "200" ]]; then
   echo "OK (200)"
@@ -38,9 +36,8 @@ else
 fi
 
 echo -n "[3/3] Probing Hybrid Worker Status API (/api/hybrid/status)... "
-HYBRID_RESP=$(curl -s -w "\n%{http_code}" "${BASE_URL}/api/hybrid/status" || echo "FAILED\n000")
-HYBRID_CODE=$(echo "${HYBRID_RESP}" | tail -n1)
-HYBRID_BODY=$(echo "${HYBRID_RESP}" | head -n -1)
+HYBRID_CODE=$(curl -s -o /tmp/ll_hybrid_body.json -w "%{http_code}" "${BASE_URL}/api/hybrid/status" || echo "000")
+HYBRID_BODY=$(cat /tmp/ll_hybrid_body.json 2>/dev/null || echo "FAILED")
 
 if [[ "${HYBRID_CODE}" == "200" ]]; then
   echo "OK (200)"

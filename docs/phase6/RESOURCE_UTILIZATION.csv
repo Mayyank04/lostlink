@@ -1,0 +1,9 @@
+Component,Resource Type,Allocated Limit,Peak Load Measured,Average Idle,Utilization Percentage,Optimization Action
+lostlink-web (2 Pods),CPU,1000m (2x 500m),280m,35m,28.0%,Right-sized pod limits to 500m
+lostlink-web (2 Pods),Memory,1024Mi (2x 512Mi),284Mi,148Mi,27.7%,Node memory limits capped with Next.js standalone
+postgres-0 (1 Pod),CPU,1000m,190m,15m,19.0%,Compound indexing prevents full table scans
+postgres-0 (1 Pod),Memory,1024Mi,256Mi,180Mi,25.0%,Shared buffers tuned to 256MB
+lostlink-worker (Public Fallback),CPU,500m,85m,5m,17.0%,Sleep polling interval during campus edge activity
+lostlink-worker (Public Fallback),Memory,384Mi,110Mi,68Mi,28.6%,Deterministic TypeScript matcher avoids runtime bloat
+Campus Edge Node (Apex Tech),CPU (Local),N/A (Host CPU),12% (1 Core),1%,N/A,Zero cloud cost - runs on campus lab PC
+Campus Edge Node (Apex Tech),RAM (Local),N/A (Host RAM),88Mi,45Mi,N/A,Zero cloud cost - local node execution
