@@ -23,16 +23,9 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/context/ToastContext';
+import { generateSlug } from '@/lib/utils/slug';
 
-export function generateSlug(text: string): string {
-  return text
-    .toLowerCase()
-    .trim()
-    .replace(/['"]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 32);
-}
+export { generateSlug };
 
 export function CollegesSection({ initialAddOpen = false }: { initialAddOpen?: boolean }) {
   const { success, error } = useToast();
@@ -40,6 +33,8 @@ export function CollegesSection({ initialAddOpen = false }: { initialAddOpen?: b
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [countryFilter, setCountryFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
@@ -94,6 +89,8 @@ export function CollegesSection({ initialAddOpen = false }: { initialAddOpen?: b
       const params = new URLSearchParams();
       if (search) params.set('search', search);
       if (statusFilter) params.set('status', statusFilter);
+      if (countryFilter) params.set('country', countryFilter);
+      if (typeFilter) params.set('institutionType', typeFilter);
       params.set('page', page.toString());
       params.set('limit', '10');
 
@@ -114,7 +111,7 @@ export function CollegesSection({ initialAddOpen = false }: { initialAddOpen?: b
 
   useEffect(() => {
     loadColleges();
-  }, [search, statusFilter, page]);
+  }, [search, statusFilter, countryFilter, typeFilter, page]);
 
   // Handle Add College Submit
   const handleAddCollege = async (e: React.FormEvent) => {
@@ -392,13 +389,44 @@ export function CollegesSection({ initialAddOpen = false }: { initialAddOpen?: b
         </div>
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="w-full sm:w-44 py-2 px-3 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setPage(1);
+          }}
+          className="w-full sm:w-36 py-2 px-3 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
         >
           <option value="">All Statuses</option>
           <option value="ACTIVE">Active</option>
           <option value="PENDING">Pending</option>
           <option value="SUSPENDED">Suspended</option>
+        </select>
+
+        <select
+          value={countryFilter}
+          onChange={(e) => {
+            setCountryFilter(e.target.value);
+            setPage(1);
+          }}
+          className="w-full sm:w-36 py-2 px-3 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+        >
+          <option value="">All Countries</option>
+          <option value="India">India</option>
+          <option value="United States">United States</option>
+        </select>
+
+        <select
+          value={typeFilter}
+          onChange={(e) => {
+            setTypeFilter(e.target.value);
+            setPage(1);
+          }}
+          className="w-full sm:w-36 py-2 px-3 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+        >
+          <option value="">All Types</option>
+          <option value="University">University</option>
+          <option value="College">College</option>
+          <option value="Polytechnic">Polytechnic</option>
+          <option value="Institute">Institute</option>
         </select>
       </div>
 

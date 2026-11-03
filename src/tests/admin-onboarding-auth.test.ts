@@ -5,7 +5,7 @@ import { GET as getCollegesRoute } from '@/app/api/colleges/route';
 import { prisma } from '@/lib/db';
 import { createSession } from '@/lib/auth/session';
 import { generateSlug } from '@/components/platform-admin/CollegesSection';
-import { CollegeStatus, UserRole, ItemStatus, ItemType, ClaimStatus } from '@prisma/client';
+import { CollegeStatus, UserRole, ItemStatus, ClaimStatus } from '@prisma/client';
 
 describe('Admin Authentication & College Onboarding Security Test Suite (Scenarios A-M)', () => {
   let platformAdminToken: string;

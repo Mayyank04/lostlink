@@ -70,6 +70,10 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const search = searchParams.get('search') || '';
     const status = searchParams.get('status');
+    const country = searchParams.get('country');
+    const state = searchParams.get('state');
+    const city = searchParams.get('city');
+    const institutionType = searchParams.get('institutionType');
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20')));
     const skip = (page - 1) * limit;
@@ -78,9 +82,22 @@ export async function GET(req: NextRequest) {
     if (status && status !== 'ALL') {
       where.status = status as CollegeStatus;
     }
+    if (country && country !== 'ALL') {
+      where.country = { equals: country, mode: 'insensitive' };
+    }
+    if (state && state !== 'ALL') {
+      where.state = { equals: state, mode: 'insensitive' };
+    }
+    if (city && city !== 'ALL') {
+      where.city = { equals: city, mode: 'insensitive' };
+    }
+    if (institutionType && institutionType !== 'ALL') {
+      where.institutionType = { equals: institutionType, mode: 'insensitive' };
+    }
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
+        { shortName: { contains: search, mode: 'insensitive' } },
         { slug: { contains: search, mode: 'insensitive' } },
         { city: { contains: search, mode: 'insensitive' } },
         { state: { contains: search, mode: 'insensitive' } },

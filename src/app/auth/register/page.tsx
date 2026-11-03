@@ -1,44 +1,56 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
-import { ShieldCheck, School, CheckCircle2, AlertCircle } from 'lucide-react';
+import { SearchableCollegeSelector } from '@/components/colleges/SearchableCollegeSelector';
+import { CollegeSearchResult } from '@/components/colleges/CollegeCard';
+import { ShieldCheck, CheckCircle2, AlertCircle } from 'lucide-react';
 
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { allColleges, switchCollege, register } = useAuth();
   const { success, error } = useToast();
+
+  const queryCollegeId = searchParams.get('college') || '';
 
   const [colleges, setColleges] = useState<any[]>(allColleges);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [collegeId, setCollegeId] = useState(allColleges[0]?.id || '');
+  const [collegeId, setCollegeId] = useState(queryCollegeId || allColleges[0]?.id || '');
+  const [selectedCollegeObj, setSelectedCollegeObj] = useState<CollegeSearchResult | null>(null);
   const [studentId, setStudentId] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   // Dynamically load active colleges from database
   useEffect(() => {
-    fetch('/api/colleges')
+    fetch('/api/colleges/search?limit=50')
       .then((res) => res.json())
       .then((data) => {
         if (data.colleges && data.colleges.length > 0) {
           setColleges(data.colleges);
-          if (!collegeId || !data.colleges.some((c: any) => c.id === collegeId)) {
+          if (queryCollegeId) {
+            const found = data.colleges.find((c: any) => c.id === queryCollegeId);
+            if (found) {
+              setCollegeId(found.id);
+              setSelectedCollegeObj(found);
+            }
+          } else if (!collegeId) {
             setCollegeId(data.colleges[0].id);
+            setSelectedCollegeObj(data.colleges[0]);
           }
         }
       })
       .catch(() => {});
-  }, []);
+  }, [queryCollegeId]);
 
-  const selectedCollege = colleges.find((c) => c.id === collegeId);
+  const selectedCollege = selectedCollegeObj || colleges.find((c) => c.id === collegeId);
   const emailDomain = email.includes('@') ? email.split('@')[1]?.toLowerCase() : '';
   const isDomainAllowed =
     emailDomain &&
@@ -49,6 +61,10 @@ export default function RegisterPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !email.trim()) return;
+    if (!collegeId) {
+      error('Selection Required', 'Please select your enrolled institution before registering.');
+      return;
+    }
 
     setIsLoading(true);
     try {
@@ -80,7 +96,7 @@ export default function RegisterPage() {
   return (
     <div className="container mx-auto px-4 sm:px-6 py-12 max-w-md space-y-6">
       <div className="text-center space-y-2">
-        <div className="w-12 h-12 rounded-2xl bg-teal-700 text-white flex items-center justify-center font-black text-xl mx-auto shadow-md">
+        <div className="w-12 h-12 rounded-2xl bg-brandTeal-700 text-white flex items-center justify-center font-black text-xl mx-auto shadow-md">
           L
         </div>
         <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
@@ -101,23 +117,17 @@ export default function RegisterPage() {
             required
           />
 
+          {/* Searchable College Selector */}
           <div>
-            <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">
-              Enrolled College / University *
-            </label>
-            <select
-              value={collegeId}
-              onChange={(e) => setCollegeId(e.target.value)}
-              className="w-full py-2 px-3 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-            >
-              {colleges.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} ({c.city}, {c.state})
-                </option>
-              ))}
-            </select>
+            <SearchableCollegeSelector
+              selectedCollegeId={collegeId}
+              onSelectCollege={(col) => {
+                setCollegeId(col.id);
+                setSelectedCollegeObj(col);
+              }}
+            />
             {selectedCollege && (
-              <p className="text-[10px] text-teal-600 mt-1 font-mono">
+              <p className="text-[10px] text-brandTeal-600 dark:text-brandTeal-400 mt-1 font-mono">
                 Approved domains: @{selectedCollege.emailDomains?.join(', @') || selectedCollege.domain}
               </p>
             )}
@@ -164,24 +174,44 @@ export default function RegisterPage() {
           />
 
           <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 flex items-start gap-2">
-            <ShieldCheck className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
+            <ShieldCheck className="w-4 h-4 text-brandTeal-600 shrink-0 mt-0.5" />
             <span>
               Registration details are kept private under student privacy guidelines. Zero cross-institution tracking.
             </span>
           </div>
 
-          <Button type="submit" variant="primary" size="md" className="w-full text-xs font-bold bg-teal-700 hover:bg-teal-800" isLoading={isLoading}>
+          <Button
+            type="submit"
+            variant="primary"
+            size="md"
+            className="w-full text-xs font-bold bg-brandTeal-700 hover:bg-brandTeal-800"
+            isLoading={isLoading}
+          >
             Continue to Institutional Verification
           </Button>
         </form>
 
         <div className="pt-2 text-center text-xs text-slate-500 border-t border-slate-100 dark:border-slate-800">
           Already registered?{' '}
-          <Link href="/auth/login" className="font-bold text-teal-700 dark:text-teal-400 hover:underline">
+          <Link href="/auth/login" className="font-bold text-brandTeal-700 dark:text-brandTeal-400 hover:underline">
             Sign In Instead
           </Link>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-[50vh] flex items-center justify-center text-xs text-slate-400">
+          Loading registration portal...
+        </div>
+      }
+    >
+      <RegisterForm />
+    </Suspense>
   );
 }

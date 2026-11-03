@@ -128,6 +128,9 @@ model College {
 
   @@index([status])
   @@index([slug])
+  @@index([name])
+  @@index([shortName])
+  @@index([country, state, city])
 }
 
 model Campus {
@@ -672,6 +675,8 @@ model CollegeApplication {
 
   @@index([status])
   @@index([slug])
+  @@index([collegeName])
+  @@index([country, state, city])
   @@index([applicantEmail])
 }
 

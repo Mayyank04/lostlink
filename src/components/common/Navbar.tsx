@@ -23,6 +23,7 @@ import {
   ShieldAlert,
   Building2,
   Search,
+  School,
   User as UserIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
@@ -49,6 +50,7 @@ export const Navbar: React.FC = () => {
 
   const navLinks = [
     { label: 'Discover', href: '/discover', icon: Compass },
+    { label: 'Colleges', href: '/colleges', icon: School },
     { label: 'Matches', href: '/matches', icon: Sparkles },
     { label: 'Claims', href: '/claims', icon: ShieldCheck },
     { label: 'Messages', href: '/messages', icon: MessageSquare, badge: unreadMessages },
