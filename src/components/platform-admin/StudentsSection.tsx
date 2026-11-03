@@ -46,8 +46,8 @@ export function StudentsSection() {
 
       const res = await fetch(`/api/platform-admin/users?${params.toString()}`);
       const data = await res.json();
-      if (data.success) {
-        setUsers(data.users);
+      if (data.success || Array.isArray(data.users)) {
+        setUsers(data.users || []);
         setTotalPages(data.pagination.totalPages || 1);
       } else {
         error('Error', data.error);

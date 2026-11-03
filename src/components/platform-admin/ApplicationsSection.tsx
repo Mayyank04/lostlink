@@ -25,8 +25,8 @@ export function ApplicationsSection() {
     try {
       const res = await fetch(`/api/platform-admin/applications?status=${statusFilter}`);
       const data = await res.json();
-      if (data.success) {
-        setApplications(data.applications);
+      if (data.success || Array.isArray(data.applications)) {
+        setApplications(data.applications || []);
       } else {
         error('Error', data.error);
       }

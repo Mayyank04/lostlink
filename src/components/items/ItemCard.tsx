@@ -62,7 +62,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, layout = 'grid' }) => 
             <div className="flex flex-wrap items-center gap-3">
               <span className="flex items-center gap-1 text-[11px]">
                 <Building className="w-3.5 h-3.5 text-slate-400" />
-                <span className="truncate max-w-[140px]">{college?.shortName || item.collegeId}</span>
+                <span className="truncate max-w-[140px]">{college?.shortName || college?.name || item.collegeId}</span>
               </span>
               <span className="flex items-center gap-1 text-[11px]">
                 <MapPin className="w-3.5 h-3.5 text-slate-400" />

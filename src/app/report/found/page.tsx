@@ -20,7 +20,7 @@ export default function ReportFoundPage() {
         </Link>
         <span className="text-xs text-brandTeal-700 dark:text-brandTeal-400 font-semibold flex items-center gap-1">
           <ShieldCheck className="w-3.5 h-3.5" />
-          {activeCollege.shortName} Safe Custody
+          {activeCollege.shortName || activeCollege.name} Safe Custody
         </span>
       </div>
 

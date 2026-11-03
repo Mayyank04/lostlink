@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { ItemReport } from '@/types/report';
+import { getCollegeShortName, getCollegeInitial } from '@/types/college';
 import { ReportService } from '@/lib/services/api';
 import { ItemCard } from '@/components/items/ItemCard';
 import { CATEGORY_LABELS } from '@/lib/utils';
@@ -76,7 +77,7 @@ export default function HomePage() {
         <div className="container mx-auto relative z-10 max-w-4xl text-center space-y-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brandTeal-50 dark:bg-brandTeal-950/60 border border-brandTeal-200 dark:border-brandTeal-800 text-xs font-semibold text-brandTeal-800 dark:text-brandTeal-300 animate-fade-in">
             <span className="w-2 h-2 rounded-full bg-brandTeal-500" />
-            <span>Active on {activeCollege.shortName} & Partner Campuses</span>
+            <span>Active on {getCollegeShortName(activeCollege)} & Partner Campuses</span>
           </div>
 
           <h1 className="text-4xl sm:text-6xl font-black text-slate-900 dark:text-white tracking-tight leading-[1.1]">
@@ -98,7 +99,7 @@ export default function HomePage() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={`Search lost & found items across ${activeCollege.shortName}...`}
+                placeholder={`Search lost & found items across ${getCollegeShortName(activeCollege)}...`}
                 className="w-full px-3 py-2 text-sm bg-transparent border-0 focus:outline-none text-slate-900 dark:text-white placeholder:text-slate-400"
               />
               <Button type="submit" variant="primary" size="md" className="rounded-xl shrink-0">
@@ -185,7 +186,7 @@ export default function HomePage() {
               Recently Reported Belongings
             </h2>
             <p className="text-xs text-slate-500">
-              Active reports from {activeCollege.shortName} and connected locations
+              Active reports from {getCollegeShortName(activeCollege)} and connected locations
             </p>
           </div>
           <Link href="/discover">
@@ -203,7 +204,7 @@ export default function HomePage() {
           </div>
         ) : (
           <div className="p-8 text-center rounded-2xl bg-slate-100 dark:bg-slate-900 text-slate-500 text-xs">
-            No public items currently reported for {activeCollege.shortName}.
+            No public items currently reported for {getCollegeShortName(activeCollege)}.
           </div>
         )}
       </section>
@@ -360,7 +361,7 @@ export default function HomePage() {
             >
               <div className="flex items-center justify-between mb-3">
                 <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-brandTeal-700 dark:text-brandTeal-300 font-bold text-sm">
-                  {col.shortName.charAt(0)}
+                  {getCollegeInitial(col)}
                 </div>
                 {col.id === activeCollege.id && (
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-brandTeal-600 text-white">
@@ -370,11 +371,11 @@ export default function HomePage() {
               </div>
 
               <h3 className="text-sm font-bold text-slate-900 dark:text-white line-clamp-1">{col.name}</h3>
-              <p className="text-xs text-slate-500 mt-0.5">{col.state}, United States</p>
+              <p className="text-xs text-slate-500 mt-0.5">{col.state || 'Federated'}, United States</p>
 
               <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500">
-                <span>{col.campuses.length} Campuses</span>
-                <span>{col.totalRecoveries}+ Recoveries</span>
+                <span>{(col.campuses || []).length} Campuses</span>
+                <span>{col.totalRecoveries || 0}+ Recoveries</span>
               </div>
             </div>
           ))}

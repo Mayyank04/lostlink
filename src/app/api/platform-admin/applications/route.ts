@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: 'desc' },
     });
 
-    return NextResponse.json({ applications });
+    return NextResponse.json({ success: true, applications });
   } catch (error) {
     return errorResponse(error);
   }

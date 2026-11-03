@@ -6,6 +6,7 @@ import { z } from 'zod';
 
 const createCollegeSchema = z.object({
   name: z.string().min(3, 'College name must be at least 3 characters'),
+  shortName: z.string().optional().nullable(),
   slug: z
     .string()
     .min(2, 'Slug must be at least 2 characters')
@@ -102,6 +103,7 @@ export async function GET(req: NextRequest) {
     ]);
 
     return NextResponse.json({
+      success: true,
       colleges,
       pagination: {
         total,
@@ -144,6 +146,7 @@ export async function POST(req: NextRequest) {
       const college = await tx.college.create({
         data: {
           name: validated.name.trim(),
+          shortName: validated.shortName?.trim() || null,
           slug,
           institutionType: validated.institutionType,
           website: validated.website || null,

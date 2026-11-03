@@ -20,7 +20,7 @@ export default function ReportLostPage() {
         </Link>
         <span className="text-xs text-brandTeal-700 dark:text-brandTeal-400 font-semibold flex items-center gap-1">
           <ShieldCheck className="w-3.5 h-3.5" />
-          {activeCollege.shortName} Verification Escrow
+          {activeCollege.shortName || activeCollege.name} Verification Escrow
         </span>
       </div>
 

@@ -4,6 +4,7 @@ import React from 'react';
 import {
   LayoutDashboard,
   Building2,
+  PlusCircle,
   FileCheck,
   UserCheck,
   Users,
@@ -11,9 +12,11 @@ import {
   ShieldAlert,
   GitCompare,
   Megaphone,
+  Bell,
   Shield,
   BarChart3,
   Server,
+  Activity,
   ScrollText,
   Lock,
   Settings,
@@ -22,16 +25,18 @@ import {
 export type PlatformAdminSection =
   | 'overview'
   | 'colleges'
+  | 'add-college'
   | 'applications'
   | 'admins'
   | 'students'
   | 'reports'
-  | 'claims'
   | 'matching'
-  | 'announcements'
+  | 'claims'
   | 'moderation'
+  | 'notifications'
   | 'analytics'
   | 'infrastructure'
+  | 'workers'
   | 'audit'
   | 'security'
   | 'settings';
@@ -44,20 +49,22 @@ interface AdminSidebarProps {
 
 export const NAV_ITEMS: { id: PlatformAdminSection; label: string; icon: any; badge?: string }[] = [
   { id: 'overview', label: '1. Overview', icon: LayoutDashboard },
-  { id: 'colleges', label: '2. Manage Colleges', icon: Building2 },
-  { id: 'applications', label: '3. College Applications', icon: FileCheck },
-  { id: 'admins', label: '4. College Admins', icon: UserCheck },
-  { id: 'students', label: '5. Students', icon: Users },
-  { id: 'reports', label: '6. Reports', icon: FileText },
-  { id: 'claims', label: '7. Claims & Disputes', icon: ShieldAlert },
-  { id: 'matching', label: '8. Matching Operations', icon: GitCompare },
-  { id: 'announcements', label: '9. Announcements', icon: Megaphone },
+  { id: 'colleges', label: '2. Colleges', icon: Building2 },
+  { id: 'add-college', label: '3. Add College', icon: PlusCircle },
+  { id: 'applications', label: '4. College Applications', icon: FileCheck },
+  { id: 'admins', label: '5. College Administrators', icon: UserCheck },
+  { id: 'students', label: '6. Students and Users', icon: Users },
+  { id: 'reports', label: '7. Lost/Found Reports', icon: FileText },
+  { id: 'matching', label: '8. Matches', icon: GitCompare },
+  { id: 'claims', label: '9. Claims and Disputes', icon: ShieldAlert },
   { id: 'moderation', label: '10. Moderation', icon: Shield },
-  { id: 'analytics', label: '11. Analytics', icon: BarChart3 },
-  { id: 'infrastructure', label: '12. Infrastructure Health', icon: Server },
-  { id: 'audit', label: '13. Audit Logs', icon: ScrollText },
-  { id: 'security', label: '14. Security & RBAC', icon: Lock },
-  { id: 'settings', label: '15. Platform Settings', icon: Settings },
+  { id: 'notifications', label: '11. Notifications', icon: Bell },
+  { id: 'analytics', label: '12. Platform Analytics', icon: BarChart3 },
+  { id: 'infrastructure', label: '13. Kubernetes and Infrastructure', icon: Server },
+  { id: 'workers', label: '14. Worker Monitoring', icon: Activity },
+  { id: 'audit', label: '15. Audit Logs', icon: ScrollText },
+  { id: 'security', label: '16. Security', icon: Lock },
+  { id: 'settings', label: '17. Platform Settings', icon: Settings },
 ];
 
 export function AdminSidebar({

@@ -33,8 +33,8 @@ export function ReportsSection() {
 
       const res = await fetch(`/api/platform-admin/reports?${params.toString()}`);
       const data = await res.json();
-      if (data.success) {
-        setReports(data.reports);
+      if (data.success || Array.isArray(data.reports) || Array.isArray(data.items)) {
+        setReports(data.reports || data.items || []);
       } else {
         error('Error', data.error);
       }

@@ -32,8 +32,8 @@ export function ClaimsSection() {
 
       const res = await fetch(`/api/platform-admin/claims?${params.toString()}`);
       const data = await res.json();
-      if (data.success) {
-        setClaims(data.claims);
+      if (data.success || Array.isArray(data.claims)) {
+        setClaims(data.claims || []);
       } else {
         error('Error', data.error);
       }

@@ -126,6 +126,52 @@ export function InfrastructureSection() {
         </div>
       )}
 
+      {/* Operational Queue & Kubernetes Status */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-card space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Matching Engine Queue</h4>
+            <Activity className="w-4 h-4 text-purple-600" />
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+              <span className="text-[10px] text-slate-400 font-semibold uppercase">Pending</span>
+              <p className="text-lg font-black text-amber-600">{opsData?.queue?.pendingJobs ?? 0}</p>
+            </div>
+            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+              <span className="text-[10px] text-slate-400 font-semibold uppercase">Failed</span>
+              <p className="text-lg font-black text-rose-600">{opsData?.queue?.failedJobs ?? 0}</p>
+            </div>
+            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+              <span className="text-[10px] text-slate-400 font-semibold uppercase">Total Run</span>
+              <p className="text-lg font-black text-purple-600">{opsData?.queue?.totalProcessed ?? 0}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-card space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Kubernetes Integration</h4>
+            <Server className="w-4 h-4 text-blue-600" />
+          </div>
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 space-y-1 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">Cluster Scraper Status:</span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                opsData?.kubernetes?.configured
+                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                  : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+              }`}>
+                {opsData?.kubernetes?.status || 'NOT_CONFIGURED'}
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500 leading-relaxed mt-1">
+              {opsData?.kubernetes?.note || 'In-cluster metrics available when deployed under k8s pod service account.'}
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Cloud Environment Details */}
       <div className="p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-card space-y-4">
         <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">

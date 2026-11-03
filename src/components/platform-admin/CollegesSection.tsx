@@ -13,13 +13,18 @@ import {
   ExternalLink,
   ShieldAlert,
   UserPlus,
+  Edit2,
+  Eye,
+  Globe,
+  MapPin,
+  Building,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/context/ToastContext';
 
-export function CollegesSection() {
+export function CollegesSection({ initialAddOpen = false }: { initialAddOpen?: boolean }) {
   const { success, error } = useToast();
   const [colleges, setColleges] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -29,12 +34,15 @@ export function CollegesSection() {
   const [totalPages, setTotalPages] = useState(1);
 
   // Modals
-  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [addModalOpen, setAddModalOpen] = useState(initialAddOpen);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [viewModalOpen, setViewModalOpen] = useState(false);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [selectedCollege, setSelectedCollege] = useState<any>(null);
 
   // Add College Form State
   const [name, setName] = useState('');
+  const [shortName, setShortName] = useState('');
   const [slug, setSlug] = useState('');
   const [emailDomains, setEmailDomains] = useState('');
   const [city, setCity] = useState('');
@@ -49,9 +57,24 @@ export function CollegesSection() {
   const [adminName, setAdminName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Edit College State
+  const [editName, setEditName] = useState('');
+  const [editShortName, setEditShortName] = useState('');
+  const [editWebsite, setEditWebsite] = useState('');
+  const [editContactEmail, setEditContactEmail] = useState('');
+  const [editCity, setEditCity] = useState('');
+  const [editState, setEditState] = useState('');
+  const [editDomains, setEditDomains] = useState('');
+
   // Invite Admin State
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteName, setInviteName] = useState('');
+
+  useEffect(() => {
+    if (initialAddOpen) {
+      setAddModalOpen(true);
+    }
+  }, [initialAddOpen]);
 
   const loadColleges = async () => {
     setIsLoading(true);
@@ -64,9 +87,9 @@ export function CollegesSection() {
 
       const res = await fetch(`/api/platform-admin/colleges?${params.toString()}`);
       const data = await res.json();
-      if (data.success) {
-        setColleges(data.colleges);
-        setTotalPages(data.pagination.totalPages || 1);
+      if (data.success || Array.isArray(data.colleges)) {
+        setColleges(data.colleges || []);
+        setTotalPages(data.pagination?.totalPages || 1);
       } else {
         error('Failed to load colleges', data.error);
       }
@@ -98,6 +121,7 @@ export function CollegesSection() {
 
       const payload: any = {
         name: name.trim(),
+        shortName: shortName.trim() || undefined,
         slug: slug.trim().toLowerCase(),
         emailDomains: domains,
         city: city.trim() || 'Main City',
@@ -127,8 +151,8 @@ export function CollegesSection() {
       });
 
       const data = await res.json();
-      if (data.success) {
-        success('College Onboarded', `Successfully added ${data.college.name}!`);
+      if (data.success || data.college) {
+        success('College Onboarded', `Successfully added ${data.college?.name || name}!`);
         setAddModalOpen(false);
         resetAddForm();
         loadColleges();
@@ -144,6 +168,7 @@ export function CollegesSection() {
 
   const resetAddForm = () => {
     setName('');
+    setShortName('');
     setSlug('');
     setEmailDomains('');
     setCity('');
@@ -155,6 +180,65 @@ export function CollegesSection() {
     setLocationName('Main Desk / Security');
     setAdminEmail('');
     setAdminName('');
+  };
+
+  const openEditModal = (col: any) => {
+    setSelectedCollege(col);
+    setEditName(col.name || '');
+    setEditShortName(col.shortName || '');
+    setEditWebsite(col.website || '');
+    setEditContactEmail(col.contactEmail || '');
+    setEditCity(col.city || '');
+    setEditState(col.state || '');
+    setEditDomains(col.emailDomains?.join(', ') || '');
+    setEditModalOpen(true);
+  };
+
+  const handleEditCollege = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCollege || !editName.trim()) return;
+
+    setIsSubmitting(true);
+    try {
+      const domains = editDomains
+        .split(',')
+        .map((d) => d.trim().replace(/^@/, ''))
+        .filter(Boolean);
+
+      const payload: any = {
+        name: editName.trim(),
+        shortName: editShortName.trim() || null,
+        website: editWebsite.trim() || undefined,
+        contactEmail: editContactEmail.trim() || undefined,
+        city: editCity.trim() || undefined,
+        state: editState.trim() || undefined,
+        emailDomains: domains.length > 0 ? domains : undefined,
+      };
+
+      const res = await fetch(`/api/platform-admin/colleges/${selectedCollege.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (data.college || data.success) {
+        success('College Updated', `Successfully updated ${editName}!`);
+        setEditModalOpen(false);
+        loadColleges();
+      } else {
+        error('Update Failed', data.error || 'Server error');
+      }
+    } catch (err: any) {
+      error('Network Error', err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const openViewModal = (col: any) => {
+    setSelectedCollege(col);
+    setViewModalOpen(true);
   };
 
   // Status Actions
@@ -332,6 +416,22 @@ export function CollegesSection() {
                       </span>
                     </td>
                     <td className="p-3.5 text-right space-x-1">
+                      <button
+                        onClick={() => openViewModal(col)}
+                        className="px-2 py-1 rounded text-[11px] font-semibold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-200"
+                        title="View Profile"
+                      >
+                        <Eye className="w-3.5 h-3.5 inline mr-1" />
+                        View
+                      </button>
+                      <button
+                        onClick={() => openEditModal(col)}
+                        className="px-2 py-1 rounded text-[11px] font-semibold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 hover:bg-blue-100"
+                        title="Edit Institution"
+                      >
+                        <Edit2 className="w-3.5 h-3.5 inline mr-1" />
+                        Edit
+                      </button>
                       {col.status === 'PENDING' && (
                         <button
                           onClick={() => handleAction(col.id, 'approve')}
@@ -392,10 +492,10 @@ export function CollegesSection() {
         maxWidth="lg"
       >
         <form onSubmit={handleAddCollege} className="space-y-4 text-xs">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Input
               label="College Name *"
-              placeholder="e.g. Stanford University"
+              placeholder="e.g. Carnegie Mellon University"
               value={name}
               onChange={(e) => {
                 setName(e.target.value);
@@ -405,8 +505,14 @@ export function CollegesSection() {
               }}
             />
             <Input
+              label="Short Name / Abbr"
+              placeholder="e.g. CMU, MIT"
+              value={shortName}
+              onChange={(e) => setShortName(e.target.value)}
+            />
+            <Input
               label="Tenant Slug *"
-              placeholder="e.g. stanford"
+              placeholder="e.g. cmu"
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
             />
@@ -415,7 +521,7 @@ export function CollegesSection() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
               label="Approved Email Domains * (comma-separated)"
-              placeholder="e.g. stanford.edu, cs.stanford.edu"
+              placeholder="e.g. cmu.edu, andrew.cmu.edu"
               value={emailDomains}
               onChange={(e) => setEmailDomains(e.target.value)}
             />
@@ -438,14 +544,29 @@ export function CollegesSection() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
+              label="Official Website"
+              placeholder="https://www.institution.edu"
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)}
+            />
+            <Input
+              label="Official Contact Email"
+              placeholder="lostfound@institution.edu"
+              value={contactEmail}
+              onChange={(e) => setContactEmail(e.target.value)}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
               label="City"
-              placeholder="e.g. Stanford / Palo Alto"
+              placeholder="e.g. Pittsburgh"
               value={city}
               onChange={(e) => setCity(e.target.value)}
             />
             <Input
               label="State / Region"
-              placeholder="e.g. California"
+              placeholder="e.g. Pennsylvania"
               value={state}
               onChange={(e) => setState(e.target.value)}
             />
@@ -535,6 +656,113 @@ export function CollegesSection() {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Edit College Modal */}
+      <Modal
+        isOpen={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        title={`Edit Institution: ${selectedCollege?.name}`}
+        description="Update institution name, short abbreviation, domains, contact info, and website."
+        maxWidth="md"
+      >
+        <form onSubmit={handleEditCollege} className="space-y-4 text-xs">
+          <Input
+            label="College Official Name *"
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+          />
+          <Input
+            label="Short Name / Abbreviation"
+            placeholder="e.g. CMU, MIT, Apex Tech"
+            value={editShortName}
+            onChange={(e) => setEditShortName(e.target.value)}
+          />
+          <Input
+            label="Approved Email Domains (comma-separated)"
+            placeholder="e.g. cmu.edu, andrew.cmu.edu"
+            value={editDomains}
+            onChange={(e) => setEditDomains(e.target.value)}
+          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="Official Website"
+              placeholder="https://institution.edu"
+              value={editWebsite}
+              onChange={(e) => setEditWebsite(e.target.value)}
+            />
+            <Input
+              label="Contact Email"
+              placeholder="lostfound@institution.edu"
+              value={editContactEmail}
+              onChange={(e) => setEditContactEmail(e.target.value)}
+            />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="City"
+              value={editCity}
+              onChange={(e) => setEditCity(e.target.value)}
+            />
+            <Input
+              label="State / Region"
+              value={editState}
+              onChange={(e) => setEditState(e.target.value)}
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+            <Button size="sm" variant="outline" type="button" onClick={() => setEditModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button size="sm" variant="primary" type="submit" disabled={isSubmitting || !editName.trim()}>
+              {isSubmitting ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* View College Profile Modal */}
+      <Modal
+        isOpen={viewModalOpen}
+        onClose={() => setViewModalOpen(false)}
+        title={`Institution Profile: ${selectedCollege?.name}`}
+        description={`Tenant Slug: ${selectedCollege?.slug} • Status: ${selectedCollege?.status}`}
+        maxWidth="md"
+      >
+        <div className="space-y-3 text-xs">
+          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 space-y-2.5 border border-slate-100 dark:border-slate-800">
+            <div className="flex justify-between items-center py-1 border-b border-slate-200/50 dark:border-slate-700/50">
+              <span className="text-slate-500">Short Name:</span>
+              <span className="font-bold text-slate-900 dark:text-white">{selectedCollege?.shortName || 'None assigned'}</span>
+            </div>
+            <div className="flex justify-between items-center py-1 border-b border-slate-200/50 dark:border-slate-700/50">
+              <span className="text-slate-500">Location:</span>
+              <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedCollege?.city}, {selectedCollege?.state} ({selectedCollege?.country || 'USA'})</span>
+            </div>
+            <div className="flex justify-between items-center py-1 border-b border-slate-200/50 dark:border-slate-700/50">
+              <span className="text-slate-500">Official Domains:</span>
+              <span className="font-mono text-purple-600 font-semibold">{selectedCollege?.emailDomains?.join(', ')}</span>
+            </div>
+            <div className="flex justify-between items-center py-1 border-b border-slate-200/50 dark:border-slate-700/50">
+              <span className="text-slate-500">Website:</span>
+              <span className="font-semibold text-blue-600">{selectedCollege?.website || 'Not provided'}</span>
+            </div>
+            <div className="flex justify-between items-center py-1 border-b border-slate-200/50 dark:border-slate-700/50">
+              <span className="text-slate-500">Campuses / Return Desks:</span>
+              <span className="font-bold text-slate-900 dark:text-white">{selectedCollege?._count?.campuses || selectedCollege?.campuses?.length || 0}</span>
+            </div>
+            <div className="flex justify-between items-center py-1">
+              <span className="text-slate-500">Total Enrolled Members:</span>
+              <span className="font-bold text-purple-600">{selectedCollege?._count?.memberships || 0}</span>
+            </div>
+          </div>
+          <div className="flex justify-end pt-2 border-t border-slate-100 dark:border-slate-800">
+            <Button size="sm" variant="outline" onClick={() => setViewModalOpen(false)}>
+              Close
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

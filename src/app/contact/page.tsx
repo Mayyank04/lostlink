@@ -24,7 +24,7 @@ export default function ContactPage() {
 
     setIsSubmitting(true);
     setTimeout(() => {
-      success('Inquiry Dispatched', `Your message was delivered to ${activeCollege.shortName} Campus Dispatch.`);
+      success('Inquiry Dispatched', `Your message was delivered to ${activeCollege.shortName || activeCollege.name} Campus Dispatch.`);
       setName('');
       setEmail('');
       setSubject('');

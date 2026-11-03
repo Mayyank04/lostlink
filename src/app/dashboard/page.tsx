@@ -96,13 +96,13 @@ export default function StudentDashboardPage() {
               // eslint-disable-next-line @next/next/no-img-element
               <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
             ) : (
-              user?.name.charAt(0) || 'U'
+              user?.name?.charAt(0) || 'U'
             )}
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                Welcome back, {user?.name.split(' ')[0]}
+                Welcome back, {user?.name?.split(' ')[0] || 'Student'}
               </h1>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
                 Verified Student

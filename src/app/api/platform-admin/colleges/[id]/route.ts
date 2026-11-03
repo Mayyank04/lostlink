@@ -6,6 +6,7 @@ import { z } from 'zod';
 
 const updateCollegeSchema = z.object({
   name: z.string().min(3).optional(),
+  shortName: z.string().optional().nullable(),
   slug: z
     .string()
     .min(2)
@@ -101,6 +102,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         where: { id: params.id },
         data: {
           name: validated.name?.trim(),
+          shortName: validated.shortName !== undefined ? (validated.shortName?.trim() || null) : undefined,
           slug: validated.slug?.trim().toLowerCase(),
           institutionType: validated.institutionType,
           website: validated.website !== undefined ? validated.website || null : undefined,

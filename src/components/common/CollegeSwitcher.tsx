@@ -37,11 +37,11 @@ export const CollegeSwitcher: React.FC<CollegeSwitcherProps> = ({ compact = fals
         </div>
         <div className="flex flex-col text-left">
           <span className="font-semibold truncate max-w-[150px]">
-            {compact ? activeCollege.shortName : activeCollege.name}
+            {compact ? (activeCollege.shortName || activeCollege.name) : activeCollege.name}
           </span>
           {activeCampus && (
             <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate max-w-[150px]">
-              {activeCampus.name.split('(')[0]}
+              {activeCampus.name?.split('(')[0] || 'Campus'}
             </span>
           )}
         </div>
@@ -69,7 +69,7 @@ export const CollegeSwitcher: React.FC<CollegeSwitcherProps> = ({ compact = fals
                   >
                     <div>
                       <p className="font-medium">{college.name}</p>
-                      <p className="text-[10px] text-slate-400">{college.state}, {college.campuses.length} Campuses</p>
+                      <p className="text-[10px] text-slate-400">{college.state || 'Federated'}, {(college.campuses || []).length} Campuses</p>
                     </div>
                     {isSelected && <Check className="w-4 h-4 text-brandTeal-600" />}
                   </button>

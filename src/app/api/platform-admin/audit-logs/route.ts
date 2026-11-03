@@ -11,6 +11,7 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get('search') || '';
     const action = searchParams.get('action');
     const resourceType = searchParams.get('resourceType');
+    const collegeId = searchParams.get('collegeId');
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '25')));
     const skip = (page - 1) * limit;
@@ -29,6 +30,9 @@ export async function GET(req: NextRequest) {
     if (resourceType && resourceType !== 'ALL') {
       where.resourceType = resourceType;
     }
+    if (collegeId && collegeId !== 'ALL') {
+      where.collegeId = collegeId;
+    }
 
     const [total, logs] = await Promise.all([
       prisma.auditLog.count({ where }),
@@ -45,7 +49,9 @@ export async function GET(req: NextRequest) {
     ]);
 
     return NextResponse.json({
+      success: true,
       logs,
+      auditLogs: logs,
       pagination: {
         total,
         page,

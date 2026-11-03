@@ -539,7 +539,7 @@ export const MultiStepReportForm: React.FC<MultiStepReportFormProps> = ({ report
                 <div>
                   <span className="text-slate-400">Campus Facility:</span>
                   <p className="font-semibold text-slate-800 dark:text-slate-200">{locationBuilding}</p>
-                  <p className="text-[11px] text-slate-500">{selectedCollege.shortName} • {dateOccurred}</p>
+                  <p className="text-[11px] text-slate-500">{(selectedCollege.shortName || selectedCollege.name)} • {dateOccurred}</p>
                 </div>
                 <button onClick={() => setStep(2)} className="text-brandTeal-600 font-semibold hover:underline">
                   Edit

@@ -24,7 +24,7 @@ export function MatchingSection() {
     try {
       const res = await fetch('/api/platform-admin/matching');
       const data = await res.json();
-      if (data.success) {
+      if (data.success || data.workers) {
         setMatchingData(data);
       } else {
         error('Error', data.error);

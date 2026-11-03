@@ -45,7 +45,7 @@ export default function ProfilePage() {
             // eslint-disable-next-line @next/next/no-img-element
             <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
           ) : (
-            user?.name.charAt(0) || 'U'
+            user?.name?.charAt(0) || 'U'
           )}
         </div>
 

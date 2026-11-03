@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import {
   AdminSidebar,
   PlatformAdminSection,
+  NAV_ITEMS,
 } from '@/components/platform-admin/AdminSidebar';
 import { OverviewSection } from '@/components/platform-admin/OverviewSection';
 import { CollegesSection } from '@/components/platform-admin/CollegesSection';
@@ -22,10 +24,11 @@ import { InfrastructureSection } from '@/components/platform-admin/Infrastructur
 import { AuditLogsSection } from '@/components/platform-admin/AuditLogsSection';
 import { SecuritySection } from '@/components/platform-admin/SecuritySection';
 import { SettingsSection } from '@/components/platform-admin/SettingsSection';
-import { ShieldAlert, Globe2, RefreshCw } from 'lucide-react';
+import { ShieldAlert, Globe2, RefreshCw, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 
-export default function PlatformAdminPage() {
+function PlatformAdminContent() {
+  const searchParams = useSearchParams();
   const { user, role } = useAuth();
   const { error } = useToast();
 
@@ -34,12 +37,28 @@ export default function PlatformAdminPage() {
   const [isLoadingOverview, setIsLoadingOverview] = useState(true);
   const [pendingAppsCount, setPendingAppsCount] = useState(0);
 
+  useEffect(() => {
+    const tab = searchParams.get('tab') as PlatformAdminSection;
+    if (tab && NAV_ITEMS.some((n) => n.id === tab)) {
+      setActiveSection(tab);
+    }
+  }, [searchParams]);
+
+  const handleSelectSection = (section: PlatformAdminSection) => {
+    setActiveSection(section);
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      params.set('tab', section);
+      window.history.pushState(null, '', `?${params.toString()}`);
+    }
+  };
+
   const loadOverview = async () => {
     setIsLoadingOverview(true);
     try {
       const res = await fetch('/api/platform-admin/overview');
       const data = await res.json();
-      if (data.success) {
+      if (data.success || data.summary) {
         setOverviewData(data);
       }
     } catch (err: any) {
@@ -103,6 +122,8 @@ export default function PlatformAdminPage() {
     );
   }
 
+  const currentNav = NAV_ITEMS.find((n) => n.id === activeSection);
+
   return (
     <div className="container mx-auto px-4 sm:px-6 py-6 space-y-6 max-w-7xl">
       {/* Top Header */}
@@ -143,25 +164,40 @@ export default function PlatformAdminPage() {
         </div>
       </div>
 
-      {/* Main Body: 15-Section Sidebar + Active Content Panel */}
+      {/* Main Body: 17-Section Sidebar + Active Content Panel */}
       <div className="flex flex-col md:flex-row gap-6 items-start">
         <AdminSidebar
           currentSection={activeSection}
-          onSelectSection={setActiveSection}
+          onSelectSection={handleSelectSection}
           pendingApplicationsCount={pendingAppsCount}
         />
 
-        <main className="flex-1 w-full min-w-0">
+        <main className="flex-1 w-full min-w-0 space-y-4">
+          {/* Breadcrumbs */}
+          <div className="flex items-center gap-2 text-xs text-slate-500 px-1">
+            <Link href="/dashboard" className="hover:text-slate-900 dark:hover:text-white transition-colors">
+              Platform
+            </Link>
+            <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+            <span className="font-semibold text-purple-600">Command Center</span>
+            <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+            <span className="font-bold text-slate-900 dark:text-white">
+              {currentNav?.label || activeSection}
+            </span>
+          </div>
+
           {activeSection === 'overview' && (
             <OverviewSection
               overviewData={overviewData}
               isLoading={isLoadingOverview}
               onRefresh={loadOverview}
-              onNavigateSection={setActiveSection}
+              onNavigateSection={handleSelectSection}
             />
           )}
 
-          {activeSection === 'colleges' && <CollegesSection />}
+          {activeSection === 'colleges' && <CollegesSection initialAddOpen={false} />}
+
+          {activeSection === 'add-college' && <CollegesSection initialAddOpen={true} />}
 
           {activeSection === 'applications' && <ApplicationsSection />}
 
@@ -171,19 +207,23 @@ export default function PlatformAdminPage() {
 
           {activeSection === 'reports' && <ReportsSection />}
 
-          {activeSection === 'claims' && <ClaimsSection />}
-
           {activeSection === 'matching' && <MatchingSection />}
 
-          {activeSection === 'announcements' && <AnnouncementsSection />}
+          {activeSection === 'claims' && <ClaimsSection />}
 
           {activeSection === 'moderation' && <ModerationSection />}
+
+          {(activeSection === 'notifications' || (activeSection as any) === 'announcements') && (
+            <AnnouncementsSection />
+          )}
 
           {activeSection === 'analytics' && (
             <AnalyticsSection overviewData={overviewData} />
           )}
 
           {activeSection === 'infrastructure' && <InfrastructureSection />}
+
+          {activeSection === 'workers' && <MatchingSection />}
 
           {activeSection === 'audit' && <AuditLogsSection />}
 
@@ -193,5 +233,13 @@ export default function PlatformAdminPage() {
         </main>
       </div>
     </div>
+  );
+}
+
+export default function PlatformAdminPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-slate-400">Loading Command Center...</div>}>
+      <PlatformAdminContent />
+    </Suspense>
   );
 }

@@ -26,8 +26,8 @@ export function AdminsSection() {
     try {
       const res = await fetch('/api/platform-admin/users?role=COLLEGE_ADMIN');
       const data = await res.json();
-      if (data.success) {
-        setAdmins(data.users);
+      if (data.success || Array.isArray(data.users)) {
+        setAdmins(data.users || []);
       } else {
         error('Error', data.error);
       }

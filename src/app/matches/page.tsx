@@ -78,7 +78,7 @@ export default function MatchesPage() {
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Explainable pairings between lost reports and found belongings across {activeCollege.shortName}
+            Explainable pairings between lost reports and found belongings across {activeCollege.shortName || activeCollege.name}
           </p>
         </div>
 

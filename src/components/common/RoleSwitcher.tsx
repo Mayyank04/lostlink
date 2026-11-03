@@ -74,7 +74,7 @@ export const RoleSwitcher: React.FC = () => {
                 >
                   <div className="flex items-center gap-2">
                     <div className="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center font-bold text-[10px]">
-                      {u.name.charAt(0)}
+                      {(u.name || 'U').charAt(0)}
                     </div>
                     <div>
                       <p className="font-semibold text-slate-900 dark:text-slate-100">{u.name}</p>

@@ -184,7 +184,7 @@ export const Navbar: React.FC = () => {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
               ) : (
-                user?.name.charAt(0) || 'U'
+                user?.name?.charAt(0) || 'U'
               )}
             </div>
           </Link>
@@ -251,7 +251,7 @@ export const Navbar: React.FC = () => {
           <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-brandTeal-600 text-white flex items-center justify-center font-bold text-xs">
-                {user?.name.charAt(0)}
+                {user?.name?.charAt(0) || 'U'}
               </div>
               <div>
                 <p className="text-xs font-semibold text-slate-900 dark:text-white">{user?.name}</p>

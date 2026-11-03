@@ -23,17 +23,35 @@ export interface Campus {
 export interface College {
   id: string;
   name: string;
-  shortName: string;
+  shortName?: string | null;
+  slug?: string;
   domain: string;
-  logoUrl?: string;
+  emailDomains?: string[];
+  logoUrl?: string | null;
   primaryColor?: string;
+  city?: string;
   state: string;
   country: string;
   campuses: Campus[];
-  activeUsersCount: number;
-  totalRecoveries: number;
-  isVerified: boolean;
-  contactEmail: string;
-  supportPhone?: string;
+  activeUsersCount?: number;
+  totalRecoveries?: number;
+  isVerified?: boolean;
+  contactEmail?: string;
+  supportPhone?: string | null;
+  stats?: {
+    activeItems?: number;
+    activeMembers?: number;
+  };
+}
+
+export function getCollegeShortName(col?: Partial<College> | null): string {
+  if (!col) return 'Campus';
+  return col.shortName?.trim() || col.name?.trim() || 'Campus';
+}
+
+export function getCollegeInitial(col?: Partial<College> | null): string {
+  if (!col) return 'C';
+  const candidate = col.shortName?.trim() || col.name?.trim() || 'C';
+  return candidate.charAt(0).toUpperCase();
 }
 

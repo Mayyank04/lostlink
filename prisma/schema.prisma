@@ -98,6 +98,7 @@ enum WorkerType {
 model College {
   id           String        @id @default(cuid())
   name         String
+  shortName    String?
   slug         String        @unique
   emailDomains String[]      // Array of officially approved domains, e.g. ["apex.edu"]
   logoUrl      String?

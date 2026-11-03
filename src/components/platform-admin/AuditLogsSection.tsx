@@ -30,8 +30,8 @@ export function AuditLogsSection() {
 
       const res = await fetch(`/api/platform-admin/audit-logs?${params.toString()}`);
       const data = await res.json();
-      if (data.success) {
-        setLogs(data.auditLogs);
+      if (data.success || Array.isArray(data.logs) || Array.isArray(data.auditLogs)) {
+        setLogs(data.auditLogs || data.logs || []);
       } else {
         error('Error', data.error);
       }
