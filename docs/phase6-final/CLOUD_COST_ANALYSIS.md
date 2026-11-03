@@ -68,3 +68,4 @@ To balance high availability, sub-10ms P95 latency, and university budget constr
 2. **Storage**: Cloudflare R2 for zero-egress photo hosting (\$1.50/mo).
 3. **Compute**: Retain Private Campus Edge Nodes for high-volume matching routines (\$0.00).
 4. **Total Recommendation**: **\$14.50 / month (₹1,254.25 / month)**.
+

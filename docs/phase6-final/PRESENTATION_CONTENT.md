@@ -179,3 +179,4 @@
 
 > **Speaker Notes:**  
 > *"In conclusion, LostLink 2.0 fully satisfies every objective of our Cloud Computing Module IV PBL curriculum: scalable containerized web app, Kubernetes orchestration, hybrid cloud deployment, and extreme cost optimization. It is not just an academic exercise, but a robust, controlled-pilot-ready platform ready to serve real students. Thank you, and I look forward to your questions."*
+

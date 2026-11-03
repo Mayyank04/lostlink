@@ -111,3 +111,4 @@ Events:
    - If the total node capacity (e.g. 4 vCPU, 8GB RAM host VPS) is 100% committed, scaling from 2 pods to 5 pods will result in pods entering `Pending` status due to `Insufficient cpu` or `Insufficient memory` errors.
 3. **Enterprise Solution**:
    - In production cloud deployments, HPA is paired with a **Cluster Autoscaler** (e.g. AWS Karpenter, GKE Auto-provisioning) that calls cloud provider APIs to spin up additional EC2/Compute instances when pods exceed physical node schedulability limits.
+

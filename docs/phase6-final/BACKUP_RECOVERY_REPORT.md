@@ -73,3 +73,4 @@ DROP DATABASE
 ## 5. Known Operational Limitations
 1. **Single-Node VPS Boundary**: In single-node deployments, physical host hardware failures (e.g. hypervisor crash) require spinning up a standby VPS from off-site S3 backup snapshots (estimated RTO: 15 minutes).
 2. **Object Storage Failover**: If the primary S3/R2 endpoint experiences a regional outage, image uploads temporarily queue until connection restoration.
+

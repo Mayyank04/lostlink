@@ -45,3 +45,4 @@ All 11 automated security tests in `src/tests/security-owasp.test.ts` passed wit
 - When a claim is approved by a moderator, a single-use 6-digit cryptographic OTP is generated and linked to the claim record.
 - The physical handover requires entering this OTP at the campus security desk.
 - Once entered, the challenge is immediately invalidated (`consumed = true`) and the item transitions to `RETURNED`. Any subsequent attempt to reuse the OTP is rejected, preventing duplicate or unauthorized handovers.
+

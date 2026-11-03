@@ -244,3 +244,4 @@ The project proves that intelligent hybrid-cloud architecture and deterministic 
 3. Digital Personal Data Protection Act, 2023. *Ministry of Law and Justice, Government of India*.
 4. Next.js App Router & Server Components. *Vercel Documentation*. https://nextjs.org/docs
 5. Grafana k6. *Load Testing for Engineering Teams*. https://k6.io/docs/
+

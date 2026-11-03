@@ -59,3 +59,4 @@ postgres-0                        7m           59Mi
 | **Matching Engine Latency** | 1,800ms - 2,500ms (Paid LLM API) | **1.8ms (Local CPU)** | Deterministic 100-pt algorithm in TypeScript |
 | **Web Container Footprint** | 280 MiB RAM | **44 MiB - 78 MiB RAM** | Next.js standalone build & Alpine base images |
 | **Session Token Overhead** | 45ms (DB session lookup per req) | **< 1ms (Stateless JWT)** | Cryptographic JWT verification in edge middleware |
+

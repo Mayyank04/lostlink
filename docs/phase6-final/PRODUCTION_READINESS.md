@@ -34,3 +34,4 @@ It is **not yet classified as Broader Production Ready (enterprise statewide rel
 2. **Moderator Staffing**: Each participating college library and security desk must designate at least 2 staff members with verified Moderator accounts.
 3. **Backup Cadence**: Automated in-cluster database snapshots every 6 hours with daily off-site S3 sync.
 4. **Ingress Protection**: Rate-limiting enforced at 60 requests/minute per client IP to safeguard against scraping bots.
+
