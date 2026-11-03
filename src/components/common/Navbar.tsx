@@ -55,10 +55,11 @@ export const Navbar: React.FC = () => {
     { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   ];
 
-  if (role === 'college_admin' || role === 'platform_admin') {
-    navLinks.push({ label: 'College Admin', href: '/admin', icon: Building2 });
+  const normalizedRole = role?.toLowerCase();
+  if (normalizedRole === 'college_admin' || normalizedRole === 'platform_admin' || normalizedRole === 'college_moderator') {
+    navLinks.push({ label: 'College Admin', href: '/college-admin', icon: Building2 });
   }
-  if (role === 'platform_admin') {
+  if (normalizedRole === 'platform_admin') {
     navLinks.push({ label: 'Platform Admin', href: '/platform-admin', icon: ShieldAlert });
   }
 

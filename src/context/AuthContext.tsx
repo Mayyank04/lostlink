@@ -44,6 +44,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(MOCK_USERS[0]);
+  const [collegesList, setCollegesList] = useState<College[]>(MOCK_COLLEGES);
   const [activeCollege, setActiveCollege] = useState<College>(MOCK_COLLEGES[0]);
   const [activeCampus, setActiveCampus] = useState<Campus | null>(MOCK_COLLEGES[0].campuses[0]);
   const [isDemoMode, setIsDemoMode] = useState(false);
@@ -107,6 +108,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setActiveCampus(foundCollege.campuses[0]);
       }
     };
+
+    // Load dynamic active colleges from PostgreSQL database
+    fetch('/api/colleges')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.colleges && data.colleges.length > 0) {
+          setCollegesList(data.colleges);
+        }
+      })
+      .catch(() => {});
 
     checkServerSession().then(() => {
       // If no server user was loaded, sync from local storage
@@ -233,7 +244,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         role: currentUser?.role || 'student',
         activeCollege,
         activeCampus,
-        allColleges: MOCK_COLLEGES,
+        allColleges: collegesList,
         isDemoMode,
         switchUser,
         switchRole,

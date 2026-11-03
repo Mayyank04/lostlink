@@ -6,11 +6,13 @@
 ![Kubernetes](https://img.shields.io/badge/Kubernetes-K3s%20%2F%20k3d-326CE5?logo=kubernetes)
 ![Architecture](https://img.shields.io/badge/Architecture-Hybrid--Cloud%20Edge-success?logo=wireguard)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql)
-![Vitest](https://img.shields.io/badge/Tests-60%20Passing-success?logo=vitest)
+![Vitest](https://img.shields.io/badge/Tests-81%20Passing-success?logo=vitest)
+![Super Admin](https://img.shields.io/badge/Super%20Admin-15%20Modules-purple?logo=shield)
+![Hosting](https://img.shields.io/badge/Public%20Hosting-%240.00%2Fmo%20Free-success?logo=cloudflare)
 
 > **Tagline:** "Lost something? Let's find it together."  
 > **Course / Academic Module:** Cloud Computing Module IV PBL Project  
-> **Architecture:** Hybrid-Cloud Distributed Architecture (Public Cloud K3s VPS + Campus Edge Matching Agents + Outbound HTTPS Zero-Inbound-Port REST Protocol)
+> **Architecture:** Hybrid-Cloud Distributed Architecture (Public Cloud K3s + Multi-College Federation + Super Admin Command Center)
 
 ---
 
@@ -66,6 +68,38 @@ The platform provides multi-institution tenant isolation, deterministic rule-bas
 - **Rate Limiting:** Sliding-window in-memory rate limiting on auth endpoints to prevent brute-force attacks
 - **Testing:** Vitest 2.1.8 with automated unit and integration tests across database constraints, authentication, tenant isolation, and storage security
 - **Containerization & Deployment:** Docker Compose for local development (Postgres 16, MinIO, Mailpit) and production multi-stage Dockerfile for Kubernetes
+
+---
+
+## 2.1 Master Upgrade: Super Admin Command Center & Multi-College Architecture
+
+LostLink 2.0 has been upgraded with enterprise-grade multi-institution federation governance:
+
+1. **Super Admin Command Center (`/platform-admin`):**
+   - **15 Integrated Modules:** Overview, Manage Colleges, Applications, College Admins, Students, Reports, Claims & Disputes, Matching Operations, Announcements, Moderation, Analytics, Infrastructure Health, Audit Logs, Security & RBAC, Platform Settings.
+   - **Atomic Tenant Provisioning:** Provisions College, initial Campus (`MAIN`), return desk (`CampusLocation`), and cryptographic invitation in a single database transaction.
+   - **CLI Bootstrap Tool:** Promote any verified account idempotently via `npm run admin:bootstrap -- --email <email>`.
+   - **Zero-Mock Telemetry:** 100% real PostgreSQL metrics, Node.js process RSS memory, and DB ping latency.
+
+2. **Scoped College Administrator Panel (`/college-admin`):**
+   - Jurisdiction strictly restricted to the administrator's authorized college with zero cross-tenant leakage.
+   - Student membership approval and physical student ID card verification.
+   - Campus and drop-off desk manager.
+   - In-person item return confirmation via 6-digit OTP code verification.
+
+3. **Dynamic Student Registration (`/auth/register`):**
+   - Dynamically pulls active institutions from database without code changes or redeployments.
+   - Automatic domain matching against approved `@domain.edu` arrays for instant verification.
+
+4. **Free Public Cloud Hosting (\$0.00/month Forever Tier):**
+   - Fully evaluated architecture for Oracle Cloud Always Free Ampere A1 (4 OCPU, 24 GB RAM, 200 GB NVMe) and Cloudflare Zero Trust Tunnel.
+   - Automated edge ingress script: `npm run tunnel:public`.
+   - Complete guides:
+     - [Free Public Hosting & Deployment Guide](docs/upgrade/FREE_HOSTING_DEPLOYMENT_GUIDE.md)
+     - [Super Admin Operating Guide](docs/upgrade/SUPER_ADMIN_OPERATING_GUIDE.md)
+     - [College Onboarding Guide](docs/upgrade/COLLEGE_ONBOARDING_GUIDE.md)
+     - [Student User Guide](docs/upgrade/STUDENT_ONBOARDING_GUIDE.md)
+     - [Security & Automated Testing Report](docs/upgrade/SECURITY_AND_TESTING_REPORT.md)
 
 ---
 

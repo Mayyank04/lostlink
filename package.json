@@ -11,7 +11,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "admin:bootstrap": "tsx scripts/bootstrap-super-admin.ts",
+    "tunnel:public": "bash scripts/deploy-public-tunnel.sh"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

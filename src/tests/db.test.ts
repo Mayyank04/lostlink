@@ -7,11 +7,14 @@ describe('PostgreSQL Database & Prisma Constraints', () => {
   let testCampusId: string;
 
   beforeAll(async () => {
-    // Ensure we can query the database
-    const colleges = await prisma.college.findMany({ take: 1, include: { campuses: true } });
-    expect(colleges.length).toBeGreaterThan(0);
-    testCollegeId = colleges[0].id;
-    testCampusId = colleges[0].campuses[0].id;
+    // Ensure we query a seeded college that has active campuses
+    const college = await prisma.college.findFirst({
+      where: { campuses: { some: {} } },
+      include: { campuses: true },
+    });
+    expect(college).toBeDefined();
+    testCollegeId = college!.id;
+    testCampusId = college!.campuses[0].id;
   });
 
   it('connects to PostgreSQL database and performs health query', async () => {

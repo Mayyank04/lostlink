@@ -106,6 +106,13 @@ model College {
   country      String        @default("United States")
   primaryColor String        @default("#0F766E")
   status       CollegeStatus @default(ACTIVE)
+  institutionType String?    @default("University")
+  website      String?
+  address      String?
+  contactEmail String?
+  contactPhone String?
+  reviewNotes  String?
+  isArchived   Boolean       @default(false)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
@@ -115,6 +122,8 @@ model College {
   auditLogs        AuditLog[]
   matchingJobs     MatchingJob[]
   campusWorkerKeys CampusWorkerKey[]
+  adminInvitations CollegeAdminInvitation[]
+  moderationActions ModerationAction[]
 
   @@index([status])
   @@index([slug])
@@ -190,6 +199,7 @@ model User {
   messageReports           MessageReport[]           @relation("UserReportedMessages")
   claimStatusActions       ClaimStatusHistory[]      @relation("ActorClaimStatusHistory")
   notificationPreference   NotificationPreference?
+  moderationActions        ModerationAction[]        @relation("ActorModerationActions")
 
   @@index([email])
   @@index([role])
@@ -629,3 +639,90 @@ model PasswordResetToken {
   @@index([email])
   @@index([token])
 }
+
+// ------------------------------------------------------------------------------
+// SUPER ADMIN & MULTI-COLLEGE ONBOARDING GOVERNANCE
+// ------------------------------------------------------------------------------
+
+model CollegeApplication {
+  id              String   @id @default(cuid())
+  collegeName     String
+  slug            String   @unique
+  institutionType String   @default("University")
+  website         String?
+  emailDomains    String[]
+  country         String   @default("United States")
+  state           String
+  city            String
+  address         String?
+  contactEmail    String?
+  contactPhone    String?
+  initialCampus   String   @default("Main Campus")
+  applicantName   String
+  applicantEmail  String
+  applicantRole   String   // e.g. "Dean of Students", "Director of Campus Safety"
+  notes           String?
+  status          String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  reviewNotes     String?
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([status])
+  @@index([slug])
+  @@index([applicantEmail])
+}
+
+model CollegeAdminInvitation {
+  id         String   @id @default(cuid())
+  collegeId  String
+  email      String
+  token      String   @unique
+  role       UserRole @default(COLLEGE_ADMIN)
+  invitedBy  String
+  status     String   @default("PENDING") // PENDING, ACCEPTED, REVOKED, EXPIRED
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  college    College  @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+
+  @@index([collegeId])
+  @@index([email])
+  @@index([token])
+  @@index([status])
+}
+
+model PlatformSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String   // String or serialized JSON
+  description String?
+  isPublic    Boolean  @default(false)
+  updatedBy   String?
+  updatedAt   DateTime @updatedAt
+
+  @@index([key])
+}
+
+model ModerationAction {
+  id         String   @id @default(cuid())
+  actorId    String
+  collegeId  String?
+  targetType String   // ITEM, USER, CLAIM, MESSAGE
+  targetId   String
+  action     String   // FLAG, HIDE, RESTORE, SUSPEND, WARN
+  reason     String
+  metadata   String?  // JSON context
+  createdAt  DateTime @default(now())
+
+  actor      User     @relation("ActorModerationActions", fields: [actorId], references: [id], onDelete: Cascade)
+  college    College? @relation(fields: [collegeId], references: [id], onDelete: SetNull)
+
+  @@index([actorId])
+  @@index([collegeId])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+}
+

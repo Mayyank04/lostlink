@@ -3,306 +3,195 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
-import { PlatformAdminAnalytics } from '@/types/analytics';
-import { AnalyticsService } from '@/lib/services/api';
-import { StatCard } from '@/components/analytics/StatCard';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Modal } from '@/components/ui/Modal';
 import {
-  ShieldAlert,
-  Server,
-  Globe2,
-  Building,
-  CheckCircle2,
-  AlertCircle,
-  Plus,
-  RefreshCw,
-  Activity,
-  Cpu,
-  Database,
-  ArrowRight,
-} from 'lucide-react';
+  AdminSidebar,
+  PlatformAdminSection,
+} from '@/components/platform-admin/AdminSidebar';
+import { OverviewSection } from '@/components/platform-admin/OverviewSection';
+import { CollegesSection } from '@/components/platform-admin/CollegesSection';
+import { ApplicationsSection } from '@/components/platform-admin/ApplicationsSection';
+import { AdminsSection } from '@/components/platform-admin/AdminsSection';
+import { StudentsSection } from '@/components/platform-admin/StudentsSection';
+import { ReportsSection } from '@/components/platform-admin/ReportsSection';
+import { ClaimsSection } from '@/components/platform-admin/ClaimsSection';
+import { MatchingSection } from '@/components/platform-admin/MatchingSection';
+import { AnnouncementsSection } from '@/components/platform-admin/AnnouncementsSection';
+import { ModerationSection } from '@/components/platform-admin/ModerationSection';
+import { AnalyticsSection } from '@/components/platform-admin/AnalyticsSection';
+import { InfrastructureSection } from '@/components/platform-admin/InfrastructureSection';
+import { AuditLogsSection } from '@/components/platform-admin/AuditLogsSection';
+import { SecuritySection } from '@/components/platform-admin/SecuritySection';
+import { SettingsSection } from '@/components/platform-admin/SettingsSection';
+import { ShieldAlert, Globe2, RefreshCw } from 'lucide-react';
+import Link from 'next/link';
 
 export default function PlatformAdminPage() {
-  const { user, role, allColleges } = useAuth();
-  const { success, error } = useToast();
+  const { user, role } = useAuth();
+  const { error } = useToast();
 
-  const [analytics, setAnalytics] = useState<PlatformAdminAnalytics | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [onboardModalOpen, setOnboardModalOpen] = useState(false);
-  const [newCollegeName, setNewCollegeName] = useState('');
-  const [newCollegeDomain, setNewCollegeDomain] = useState('');
-  const [newCollegeState, setNewCollegeState] = useState('');
+  const [activeSection, setActiveSection] = useState<PlatformAdminSection>('overview');
+  const [overviewData, setOverviewData] = useState<any>(null);
+  const [isLoadingOverview, setIsLoadingOverview] = useState(true);
+  const [pendingAppsCount, setPendingAppsCount] = useState(0);
 
-  const loadPlatformData = async () => {
-    setIsLoading(true);
+  const loadOverview = async () => {
+    setIsLoadingOverview(true);
     try {
-      const data = await AnalyticsService.getPlatformAnalytics();
-      setAnalytics(data);
-    } catch (e) {
-      console.error(e);
+      const res = await fetch('/api/platform-admin/overview');
+      const data = await res.json();
+      if (data.success) {
+        setOverviewData(data);
+      }
+    } catch (err: any) {
+      console.error('Error fetching overview', err);
     } finally {
-      setIsLoading(false);
+      setIsLoadingOverview(false);
     }
   };
 
-  useEffect(() => {
-    loadPlatformData();
-  }, []);
-
-  const handleOnboardSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newCollegeName.trim() || !newCollegeDomain.trim()) return;
-
-    success(
-      'College Onboarding Initiated',
-      `${newCollegeName} (${newCollegeDomain}) provisioned with temporary multi-campus tenant namespace.`
-    );
-    setOnboardModalOpen(false);
-    setNewCollegeName('');
-    setNewCollegeDomain('');
-    setNewCollegeState('');
+  const loadPendingApplications = async () => {
+    try {
+      const res = await fetch('/api/platform-admin/applications?status=PENDING');
+      const data = await res.json();
+      if (data.success && data.applications) {
+        setPendingAppsCount(data.applications.length);
+      }
+    } catch {}
   };
 
+  useEffect(() => {
+    if (role === 'platform_admin') {
+      loadOverview();
+      loadPendingApplications();
+    }
+  }, [role]);
+
+  // Auth Guard
+  if (!user) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center text-slate-400">
+        Authenticating Super Administrator session...
+      </div>
+    );
+  }
+
+  if (role !== 'platform_admin') {
+    return (
+      <div className="container mx-auto px-4 py-16 max-w-lg text-center space-y-4">
+        <div className="w-16 h-16 mx-auto rounded-2xl bg-rose-100 text-rose-600 dark:bg-rose-950/60 flex items-center justify-center">
+          <ShieldAlert className="w-8 h-8" />
+        </div>
+        <h1 className="text-xl font-black text-slate-900 dark:text-white">
+          Access Restricted: Super Administrator Only
+        </h1>
+        <p className="text-xs text-slate-500 leading-relaxed">
+          This command center requires the <code className="font-mono font-bold text-rose-600">PLATFORM_ADMIN</code> role.
+          If this is a local development instance, promote your account using:
+        </p>
+        <div className="p-3 rounded-xl bg-slate-900 text-slate-200 font-mono text-[11px] text-left">
+          npm run admin:bootstrap -- --email your.email@institution.edu
+        </div>
+        <div className="pt-2">
+          <Link
+            href="/dashboard"
+            className="inline-block px-4 py-2 rounded-xl text-xs font-bold bg-purple-600 text-white hover:bg-purple-700"
+          >
+            Return to Dashboard
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="container mx-auto px-4 sm:px-6 py-8 space-y-8 max-w-6xl">
-      {/* Header */}
-      <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-card flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-purple-700 text-white flex items-center justify-center font-bold text-xl shadow-sm">
-            <Globe2 className="w-7 h-7" />
+    <div className="container mx-auto px-4 sm:px-6 py-6 space-y-6 max-w-7xl">
+      {/* Top Header */}
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-card flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-xl bg-purple-700 text-white flex items-center justify-center font-bold shadow-sm shrink-0">
+            <Globe2 className="w-6 h-6" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                LostLink Platform Governance
+              <h1 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
+                Super Admin Command Center
               </h1>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300">
-                Super Admin
+                PLATFORM_ADMIN
               </span>
             </div>
-            <p className="text-xs text-slate-500 mt-1">
-              Cross-Institutional Federation & Hybrid-Cloud Kubernetes Orchestration
+            <p className="text-xs text-slate-500 mt-0.5">
+              Federation Governance, Dynamic College Onboarding & Cloud Infrastructure Control
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="primary" onClick={() => setOnboardModalOpen(true)} className="text-xs">
-            <Plus className="w-3.5 h-3.5 mr-1" />
-            Onboard New College
-          </Button>
-          <Button size="sm" variant="outline" onClick={loadPlatformData} className="text-xs">
-            <RefreshCw className="w-3.5 h-3.5 mr-1" />
-            Refresh Health
-          </Button>
+        <div className="flex items-center gap-2 self-end md:self-auto text-xs">
+          <span className="text-slate-400 font-mono hidden sm:inline">
+            Logged in as: <strong>{user?.email}</strong>
+          </span>
+          <button
+            onClick={() => {
+              loadOverview();
+              loadPendingApplications();
+            }}
+            className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300"
+            title="Refresh All Telemetry"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
-      {/* Platform Stat Cards */}
-      {analytics && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <StatCard
-            title="Federated Colleges"
-            value={analytics.totalCollegesCount}
-            subtitle="Active university tenants"
-            icon={Building}
-            variant="teal"
-          />
-          <StatCard
-            title="Total Students"
-            value="54,800"
-            subtitle="Verified email domains"
-            icon={Activity}
-            variant="blue"
-          />
-          <StatCard
-            title="Total Platform Reports"
-            value={analytics.totalPlatformReports}
-            subtitle="Demonstration register"
-            icon={Server}
-            variant="amber"
-          />
-          <StatCard
-            title="Avg Recovery Rate"
-            value={`${analytics.averagePlatformRecoveryRate}%`}
-            subtitle="Multi-campus success"
-            icon={CheckCircle2}
-            variant="emerald"
-          />
-        </div>
-      )}
+      {/* Main Body: 15-Section Sidebar + Active Content Panel */}
+      <div className="flex flex-col md:flex-row gap-6 items-start">
+        <AdminSidebar
+          currentSection={activeSection}
+          onSelectSection={setActiveSection}
+          pendingApplicationsCount={pendingAppsCount}
+        />
 
-      {/* Hybrid-Cloud Kubernetes & Backend Health Monitoring */}
-      {analytics && (
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-card space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-            <div className="flex items-center gap-2">
-              <Server className="w-5 h-5 text-brandTeal-600" />
-              <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  Hybrid-Cloud Kubernetes Infrastructure Health
-                </h3>
-                <p className="text-[11px] text-slate-400">
-                  Target deployment environment: Containerized Kubernetes cluster (Module IV Cloud Computing PBL)
-                </p>
-              </div>
-            </div>
+        <main className="flex-1 w-full min-w-0">
+          {activeSection === 'overview' && (
+            <OverviewSection
+              overviewData={overviewData}
+              isLoading={isLoadingOverview}
+              onRefresh={loadOverview}
+              onNavigateSection={setActiveSection}
+            />
+          )}
 
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              All Systems Operational
-            </span>
-          </div>
+          {activeSection === 'colleges' && <CollegesSection />}
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
-            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 space-y-1">
-              <span className="text-slate-400 flex items-center gap-1">
-                <Cpu className="w-3.5 h-3.5 text-brandTeal-600" /> K8s Pods
-              </span>
-              <p className="font-bold text-slate-900 dark:text-white text-sm">
-                {analytics.systemHealth.k8sPodsHealthy} / {analytics.systemHealth.k8sPodsTotal} Healthy
-              </p>
-              <p className="text-[10px] text-emerald-600 font-semibold">Zero pod restarts</p>
-            </div>
+          {activeSection === 'applications' && <ApplicationsSection />}
 
-            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 space-y-1">
-              <span className="text-slate-400 flex items-center gap-1">
-                <Activity className="w-3.5 h-3.5 text-blue-600" /> API Gateway Latency
-              </span>
-              <p className="font-bold text-slate-900 dark:text-white text-sm">
-                {analytics.systemHealth.apiLatencyMs} ms
-              </p>
-              <p className="text-[10px] text-slate-400">p99 latency: 98 ms</p>
-            </div>
+          {activeSection === 'admins' && <AdminsSection />}
 
-            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 space-y-1">
-              <span className="text-slate-400 flex items-center gap-1">
-                <Database className="w-3.5 h-3.5 text-purple-600" /> PostgreSQL Connection Pool
-              </span>
-              <p className="font-bold text-slate-900 dark:text-white text-sm">
-                Active & Healthy
-              </p>
-              <p className="text-[10px] text-slate-400">{analytics.systemHealth.databasePoolStatus}</p>
-            </div>
+          {activeSection === 'students' && <StudentsSection />}
 
-            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 space-y-1">
-              <span className="text-slate-400 flex items-center gap-1">
-                <Globe2 className="w-3.5 h-3.5 text-amber-600" /> Uptime SLA
-              </span>
-              <p className="font-bold text-slate-900 dark:text-white text-sm">
-                {analytics.systemHealth.uptimePercent}%
-              </p>
-              <p className="text-[10px] text-emerald-600 font-semibold">30-day window</p>
-            </div>
-          </div>
-        </div>
-      )}
+          {activeSection === 'reports' && <ReportsSection />}
 
-      {/* College Onboarding & Tenant Directory Table */}
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-card space-y-4 p-6">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-          <div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-              Institutional Tenants & Campuses
-            </h3>
-            <p className="text-xs text-slate-500">
-              Approved universities participating in the shared lost-and-found federated registry
-            </p>
-          </div>
-        </div>
+          {activeSection === 'claims' && <ClaimsSection />}
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 uppercase text-[10px] tracking-wider">
-              <tr>
-                <th className="p-3.5">Institution Name</th>
-                <th className="p-3.5">Verified Domain</th>
-                <th className="p-3.5">Campuses</th>
-                <th className="p-3.5">Students</th>
-                <th className="p-3.5">Recovery Rate</th>
-                <th className="p-3.5">Tenant Status</th>
-                <th className="p-3.5 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {allColleges.map((col) => (
-                <tr key={col.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
-                  <td className="p-3.5">
-                    <p className="font-bold text-slate-900 dark:text-white">{col.name}</p>
-                    <p className="text-[10px] text-slate-400">{col.state}, USA</p>
-                  </td>
-                  <td className="p-3.5 font-mono text-[11px] text-brandTeal-600">
-                    @{col.domain}
-                  </td>
-                  <td className="p-3.5 text-slate-700 dark:text-slate-300 font-medium">
-                    {col.campuses.length} Campuses
-                  </td>
-                  <td className="p-3.5 text-slate-700 dark:text-slate-300 font-medium">
-                    {col.activeUsersCount.toLocaleString()}
-                  </td>
-                  <td className="p-3.5 font-bold text-emerald-600">
-                    80.2%
-                  </td>
-                  <td className="p-3.5">
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                      Approved & Active
-                    </span>
-                  </td>
-                  <td className="p-3.5 text-right">
-                    <Button size="sm" variant="outline" className="h-7 text-xs">
-                      Manage Tenant
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+          {activeSection === 'matching' && <MatchingSection />}
+
+          {activeSection === 'announcements' && <AnnouncementsSection />}
+
+          {activeSection === 'moderation' && <ModerationSection />}
+
+          {activeSection === 'analytics' && (
+            <AnalyticsSection overviewData={overviewData} />
+          )}
+
+          {activeSection === 'infrastructure' && <InfrastructureSection />}
+
+          {activeSection === 'audit' && <AuditLogsSection />}
+
+          {activeSection === 'security' && <SecuritySection />}
+
+          {activeSection === 'settings' && <SettingsSection />}
+        </main>
       </div>
-
-      {/* Onboard Modal */}
-      <Modal
-        isOpen={onboardModalOpen}
-        onClose={() => setOnboardModalOpen(false)}
-        title="Onboard New University Institution"
-        description="Add a new college tenant with campus configurations and verified student domain."
-        maxWidth="md"
-      >
-        <form onSubmit={handleOnboardSubmit} className="space-y-4 text-xs">
-          <Input
-            label="College / University Name *"
-            placeholder="e.g. Stanford University, MIT, Berkeley"
-            value={newCollegeName}
-            onChange={(e) => setNewCollegeName(e.target.value)}
-          />
-
-          <Input
-            label="Official Student Email Domain *"
-            placeholder="e.g. stanford.edu (used for SSO verification)"
-            value={newCollegeDomain}
-            onChange={(e) => setNewCollegeDomain(e.target.value)}
-          />
-
-          <Input
-            label="State / Region *"
-            placeholder="e.g. California, Massachusetts"
-            value={newCollegeState}
-            onChange={(e) => setNewCollegeState(e.target.value)}
-          />
-
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-            <Button size="sm" variant="outline" type="button" onClick={() => setOnboardModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button size="sm" variant="primary" type="submit" disabled={!newCollegeName.trim() || !newCollegeDomain.trim()}>
-              Provision Institution Tenant
-            </Button>
-          </div>
-        </form>
-      </Modal>
     </div>
   );
 }
-
