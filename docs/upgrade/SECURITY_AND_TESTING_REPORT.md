@@ -70,3 +70,4 @@ LostLink 2.0 manages high-value student belongings, sensitive contact info, and 
    - Verified file upload extension filtering and magic-byte validation.
 3. **`e2e-recovery.test.ts` (11 tests):**
    - Verified end-to-end recovery lifecycle from lost report to found report, automatic matching, claim verification, secure messaging, and 6-digit OTP code return.
+

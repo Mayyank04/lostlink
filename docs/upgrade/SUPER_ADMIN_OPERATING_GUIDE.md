@@ -119,3 +119,4 @@ The Super Admin Command Center (`/platform-admin`) provides 15 dedicated modules
   - **Enforce Domain Matching:** Restricts registration strictly to students whose email domain matches the college's approved domain list.
   - **Matching Confidence Threshold:** Sets minimum scoring requirement (e.g. `0.65`).
   - **Max Active Claims:** Configures the limit of simultaneous pending claims per student.
+

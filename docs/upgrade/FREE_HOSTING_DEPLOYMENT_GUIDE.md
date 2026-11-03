@@ -124,3 +124,4 @@ Before onboarding active students from multiple universities:
 - [x] **Colleges Initialized:** Ensure at least one college, campus, and location desk are provisioned in PostgreSQL via `/platform-admin`.
 - [x] **Automatic Backups Configured:** Schedule daily PostgreSQL automated dumps using `scripts/backup-database.sh`.
 - [x] **Health Probes Tested:** Verify `/api/health/ready` returns HTTP 200 with active database and storage readiness.
+

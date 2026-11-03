@@ -106,3 +106,4 @@ bootstrapSuperAdmin()
   .finally(async () => {
     await prisma.$disconnect();
   });
+

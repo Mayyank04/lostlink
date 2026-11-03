@@ -73,3 +73,4 @@ When a student's ownership claim is approved, LostLink provides a cryptographica
    - The Claim is transitioned to `RETURNED`.
    - The Item is transitioned to `RETURNED`.
    - An immutable entry is written to the audit log with the confirming officer's identity.
+

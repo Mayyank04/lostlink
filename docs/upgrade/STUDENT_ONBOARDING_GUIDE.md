@@ -65,3 +65,4 @@ If a match scores above the platform confidence threshold (>= 0.65), a **Potenti
    - You can chat securely via in-app end-to-end messaging to coordinate a meetup.
    - A **6-Digit One-Time Password (OTP)** will appear on your device screen.
 5. Present the 6-digit code at the campus return desk or to the finder to verify the handover. Once entered, the item is marked as officially **RETURNED**.
+
