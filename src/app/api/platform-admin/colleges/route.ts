@@ -21,9 +21,26 @@ const createCollegeSchema = z.object({
   primaryColor: z.string().regex(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/, 'Must be a valid hex color').default('#0F766E'),
   contactEmail: z.string().email('Valid contact email required').optional().or(z.literal('')),
   contactPhone: z.string().optional().nullable(),
-  initialCampus: z.string().min(2).default('Main Campus'),
+  initialCampus: z
+    .union([
+      z.string(),
+      z.object({
+        name: z.string().optional(),
+        code: z.string().optional(),
+        addressLabel: z.string().optional(),
+        initialLocationName: z.string().optional(),
+      }),
+    ])
+    .optional()
+    .default('Main Campus'),
   status: z.nativeEnum(CollegeStatus).default(CollegeStatus.ACTIVE),
   adminEmail: z.string().email().optional().or(z.literal('')),
+  collegeAdmin: z
+    .object({
+      email: z.string().email(),
+      name: z.string().optional(),
+    })
+    .optional(),
   reviewNotes: z.string().optional().nullable(),
 });
 
@@ -145,13 +162,18 @@ export async function POST(req: NextRequest) {
       });
 
       // 2. Create Initial Campus
-      const campusCode = 'MAIN';
+      const initialCampusObj = typeof validated.initialCampus === 'object' ? validated.initialCampus : null;
+      const campusName = initialCampusObj?.name || (typeof validated.initialCampus === 'string' ? validated.initialCampus : 'Main Campus');
+      const campusCode = initialCampusObj?.code || 'MAIN';
+      const addressLabel = initialCampusObj?.addressLabel || `${validated.name} - ${campusName}`;
+      const locationName = initialCampusObj?.initialLocationName || 'Main Security Office & Lost/Found Desk';
+
       const campus = await tx.campus.create({
         data: {
           collegeId: college.id,
-          name: validated.initialCampus.trim(),
-          code: campusCode,
-          addressLabel: `${validated.name} - ${validated.initialCampus}`,
+          name: campusName.trim(),
+          code: campusCode.trim().toUpperCase(),
+          addressLabel: addressLabel.trim(),
           lostFoundDeskRoom: 'Central Security / Information Desk',
           operatingHours: 'Mon - Fri: 8:00 AM - 5:00 PM',
           contactEmail: validated.contactEmail || `lostfound@${emailDomains[0]}`,
@@ -163,7 +185,7 @@ export async function POST(req: NextRequest) {
       await tx.campusLocation.create({
         data: {
           campusId: campus.id,
-          name: 'Main Security Office & Lost/Found Desk',
+          name: locationName.trim(),
           building: 'Administration Hall',
           floorLabel: 'Ground Floor',
           locationType: 'desk',
@@ -174,8 +196,9 @@ export async function POST(req: NextRequest) {
 
       // 4. Assign College Admin if provided
       let assignedAdmin = null;
-      if (validated.adminEmail) {
-        const adminEmail = validated.adminEmail.trim().toLowerCase();
+      const targetAdminEmail = validated.adminEmail || validated.collegeAdmin?.email;
+      if (targetAdminEmail) {
+        const adminEmail = targetAdminEmail.trim().toLowerCase();
         let targetUser = await tx.user.findUnique({
           where: { email: adminEmail },
         });
