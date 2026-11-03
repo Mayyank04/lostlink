@@ -22,7 +22,8 @@ interface AuthContextType {
   activeCampus: Campus | null;
   allColleges: College[];
   isDemoMode: boolean;
-  switchUser: (userId: string) => void;
+  serverAuthenticated: boolean;
+  switchUser: (userId: string) => void | Promise<void>;
   switchRole: (role: UserRole) => void;
   switchCollege: (collegeId: string) => void;
   switchCampus: (campusId: string) => void;
@@ -35,9 +36,9 @@ interface AuthContextType {
     collegeId: string;
     studentId?: string;
   }) => Promise<{ success: boolean; error?: string }>;
-  logout: () => void;
+  logout: () => void | Promise<void>;
   resetDemoData: () => void;
-  refreshUser: () => Promise<void>;
+  refreshUser: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -48,10 +49,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [activeCollege, setActiveCollege] = useState<College>(MOCK_COLLEGES[0]);
   const [activeCampus, setActiveCampus] = useState<Campus | null>(MOCK_COLLEGES[0].campuses[0]);
   const [isDemoMode, setIsDemoMode] = useState(false);
+  const [serverAuthenticated, setServerAuthenticated] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Checks server session on mount
-  const checkServerSession = async () => {
+  // Checks genuine server session via /api/auth/me
+  const checkServerSession = async (): Promise<boolean> => {
     try {
       const res = await fetch('/api/auth/me', { cache: 'no-store' });
       if (res.ok) {
@@ -59,7 +61,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (data.user) {
           const u = data.user;
           const userCollegeMembership = u.memberships?.[0];
-          const foundCollege = MOCK_COLLEGES.find((c) => c.id === userCollegeMembership?.collegeId) || MOCK_COLLEGES[0];
+          const foundCollege = collegesList.find((c) => c.id === userCollegeMembership?.collegeId) || MOCK_COLLEGES[0];
 
           setCurrentUser({
             id: u.id,
@@ -79,12 +81,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setActiveCollege(foundCollege);
           setActiveCampus(foundCollege.campuses[0] || null);
           setIsDemoMode(false);
-          return;
+          setServerAuthenticated(true);
+          return true;
         }
       }
     } catch (e) {
-      console.warn('Could not verify server session, using local store:', e);
+      console.warn('Could not verify server session:', e);
     }
+    setServerAuthenticated(false);
+    return false;
   };
 
   useEffect(() => {
@@ -96,16 +101,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const cId = getActiveCollegeId();
 
       const foundUser = MOCK_USERS.find((u) => u.id === uId) || MOCK_USERS[0];
-      const foundCollege = MOCK_COLLEGES.find((c) => c.id === cId) || MOCK_COLLEGES[0];
+      const foundCollege = collegesList.find((c) => c.id === cId) || MOCK_COLLEGES.find((c) => c.id === cId) || MOCK_COLLEGES[0];
 
       setCurrentUser(foundUser);
       setActiveCollege(foundCollege);
 
       if (foundUser.campusId) {
-        const camp = foundCollege.campuses.find((c) => c.id === foundUser.campusId);
-        setActiveCampus(camp || foundCollege.campuses[0]);
+        const camp = foundCollege.campuses?.find((c) => c.id === foundUser.campusId);
+        setActiveCampus(camp || foundCollege.campuses?.[0] || null);
       } else {
-        setActiveCampus(foundCollege.campuses[0]);
+        setActiveCampus(foundCollege.campuses?.[0] || null);
       }
     };
 
@@ -119,10 +124,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       })
       .catch(() => {});
 
-    checkServerSession().then(() => {
-      // If no server user was loaded, sync from local storage
-      if (!currentUser || currentUser.id === 'user-maya') {
-        updateFromStorage();
+    checkServerSession().then((hasServerSession) => {
+      if (!hasServerSession) {
+        // If stored active user was platform-admin without a server session, reset to student demo
+        const uId = getActiveUserId();
+        if (uId === 'user-platform-admin') {
+          setActiveUserId('user-maya');
+          setCurrentUser(MOCK_USERS[0]);
+        } else {
+          updateFromStorage();
+        }
+        setIsDemoMode(true);
       }
     });
 
@@ -130,21 +142,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribe();
   }, []);
 
-  const switchUser = (userId: string) => {
+  const switchUser = async (userId: string) => {
     const targetUser = MOCK_USERS.find((u) => u.id === userId);
-    if (targetUser) {
-      setActiveUserId(targetUser.id);
-      setActiveCollegeId(targetUser.collegeId);
-      setCurrentUser(targetUser);
+    if (!targetUser) return;
 
-      const targetCollege = MOCK_COLLEGES.find((c) => c.id === targetUser.collegeId) || MOCK_COLLEGES[0];
-      setActiveCollege(targetCollege);
-      if (targetUser.campusId) {
-        const camp = targetCollege.campuses.find((c) => c.id === targetUser.campusId);
-        setActiveCampus(camp || targetCollege.campuses[0]);
-      }
-      setIsDemoMode(true);
+    setActiveUserId(targetUser.id);
+    setActiveCollegeId(targetUser.collegeId);
+    setCurrentUser(targetUser);
+
+    const targetCollege = collegesList.find((c) => c.id === targetUser.collegeId) || MOCK_COLLEGES.find((c) => c.id === targetUser.collegeId) || MOCK_COLLEGES[0];
+    setActiveCollege(targetCollege);
+    if (targetUser.campusId) {
+      const camp = targetCollege.campuses?.find((c) => c.id === targetUser.campusId);
+      setActiveCampus(camp || targetCollege.campuses?.[0] || null);
     }
+
+    // Attempt real backend authentication for seed personas
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: targetUser.email, password: 'Password123!' }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.user) {
+          await checkServerSession();
+          return;
+        }
+      }
+    } catch {
+      // Offline fallback
+    }
+
+    // Fallback to local demo mode if backend is unreachable
+    setIsDemoMode(true);
+    setServerAuthenticated(false);
   };
 
   const switchRole = (newRole: UserRole) => {
@@ -155,16 +188,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const switchCollege = (collegeId: string) => {
-    const col = MOCK_COLLEGES.find((c) => c.id === collegeId);
+    const col = collegesList.find((c) => c.id === collegeId) || MOCK_COLLEGES.find((c) => c.id === collegeId);
     if (col) {
       setActiveCollege(col);
       setActiveCollegeId(col.id);
-      setActiveCampus(col.campuses[0] || null);
+      setActiveCampus(col.campuses?.[0] || null);
     }
   };
 
   const switchCampus = (campusId: string) => {
-    const camp = activeCollege.campuses.find((c) => c.id === campusId);
+    const camp = activeCollege.campuses?.find((c) => c.id === campusId);
     if (camp) {
       setActiveCampus(camp);
     }
@@ -195,10 +228,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await checkServerSession();
       return { success: true };
     } catch {
-      // Fallback to local loginAs
-      const ok = loginAs(email);
-      if (ok) return { success: true };
-      return { success: false, error: 'Network error connecting to backend' };
+      return { success: false, error: 'Network error connecting to backend authentication server' };
     }
   };
 
@@ -228,9 +258,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const logout = () => {
-    fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
-    switchUser('user-maya');
+  const logout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {}
+    setActiveUserId('user-maya');
+    setCurrentUser(null);
+    setServerAuthenticated(false);
+    setIsDemoMode(false);
+    if (typeof window !== 'undefined') {
+      window.location.href = '/auth/login';
+    }
   };
 
   const resetDemoData = () => {
@@ -246,6 +284,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         activeCampus,
         allColleges: collegesList,
         isDemoMode,
+        serverAuthenticated,
         switchUser,
         switchRole,
         switchCollege,

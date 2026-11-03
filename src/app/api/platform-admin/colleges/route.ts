@@ -4,18 +4,35 @@ import { requireAuth, requirePlatformAdmin, errorResponse } from '@/lib/auth/ten
 import { CollegeStatus, UserRole, MembershipStatus } from '@prisma/client';
 import { z } from 'zod';
 
+const domainRegex = /^[a-z0-9]+(-[a-z0-9]+)*(\.[a-z0-9]+(-[a-z0-9]+)*)+$/i;
+
 const createCollegeSchema = z.object({
-  name: z.string().min(3, 'College name must be at least 3 characters'),
-  shortName: z.string().optional().nullable(),
+  name: z.string().trim().min(3, 'College name must be at least 3 characters'),
+  shortName: z.string().trim().optional().nullable(),
   slug: z
     .string()
+    .trim()
+    .toLowerCase()
     .min(2, 'Slug must be at least 2 characters')
-    .regex(/^[a-z0-9-]+$/, 'Slug must only contain lowercase alphanumeric characters and hyphens'),
+    .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'Slug must only contain lowercase alphanumeric characters and single hyphens'),
   institutionType: z.string().default('University'),
   website: z.string().url('Valid website URL required').optional().or(z.literal('')),
-  emailDomains: z.array(z.string().min(3)).min(1, 'At least one institutional email domain is required'),
-  city: z.string().min(2, 'City is required'),
-  state: z.string().min(2, 'State/Province is required'),
+  emailDomains: z
+    .array(
+      z
+        .string()
+        .trim()
+        .toLowerCase()
+        .refine((val) => !val.includes('@'), {
+          message: 'Approved email domains must be domain names only (e.g. "iilm.edu"), not full email addresses',
+        })
+        .refine((val) => domainRegex.test(val), {
+          message: 'Must be a valid domain format without protocol or @ (e.g. "iilm.edu" or "students.iilm.edu")',
+        })
+    )
+    .min(1, 'At least one institutional email domain is required'),
+  city: z.string().trim().min(2, 'City is required'),
+  state: z.string().trim().min(2, 'State/Province is required'),
   country: z.string().default('United States'),
   address: z.string().optional().nullable(),
   logoUrl: z.string().optional().nullable(),
@@ -35,10 +52,10 @@ const createCollegeSchema = z.object({
     .optional()
     .default('Main Campus'),
   status: z.nativeEnum(CollegeStatus).default(CollegeStatus.ACTIVE),
-  adminEmail: z.string().email().optional().or(z.literal('')),
+  adminEmail: z.string().email('Invalid administrator email format').optional().or(z.literal('')),
   collegeAdmin: z
     .object({
-      email: z.string().email(),
+      email: z.string().email('Invalid administrator email format'),
       name: z.string().optional(),
     })
     .optional(),
@@ -277,9 +294,20 @@ export async function POST(req: NextRequest) {
       },
       { status: 201 }
     );
-  } catch (error) {
+  } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.issues[0]?.message || 'Validation failed', details: error.issues }, { status: 400 });
+      return NextResponse.json(
+        { error: error.issues[0]?.message || 'Validation failed', details: error.issues },
+        { status: 400 }
+      );
+    }
+    // Handle Prisma unique constraint violation (P2002)
+    if (error?.code === 'P2002') {
+      const target = Array.isArray(error.meta?.target) ? error.meta.target.join(', ') : 'identifier';
+      return NextResponse.json(
+        { error: `An institution with this ${target} already exists. Please choose a unique value.` },
+        { status: 409 }
+      );
     }
     return errorResponse(error);
   }

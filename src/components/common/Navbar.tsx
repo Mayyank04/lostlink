@@ -29,7 +29,7 @@ import { Button } from '@/components/ui/Button';
 
 export const Navbar: React.FC = () => {
   const pathname = usePathname();
-  const { user, role } = useAuth();
+  const { user, role, serverAuthenticated, isDemoMode } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(2);
@@ -70,13 +70,21 @@ export const Navbar: React.FC = () => {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md">
-      {/* Demo Notice Banner */}
+      {/* Global Status Banner */}
       <div className="bg-slate-900 dark:bg-slate-950 text-slate-300 px-4 py-1 text-[11px] flex items-center justify-between">
         <div className="container mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span
+              className={`w-2 h-2 rounded-full ${
+                serverAuthenticated ? 'bg-emerald-400' : 'bg-amber-400'
+              } animate-pulse`}
+            />
             <span className="font-medium">
-              LostLink 2.0 Academic Demo — Multi-Campus Architecture Active
+              {serverAuthenticated && role === 'platform_admin'
+                ? 'Platform Governance Active — Authenticated as Dr. Evelyn Reed (PLATFORM_ADMIN)'
+                : serverAuthenticated
+                ? `LostLink 2.0 Active — Authenticated as ${user?.name} (${role.replace('_', ' ')})`
+                : 'LostLink 2.0 Academic Demo — Multi-Campus Architecture Active'}
             </span>
           </div>
           <div className="hidden sm:flex items-center gap-4">

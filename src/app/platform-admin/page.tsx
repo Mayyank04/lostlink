@@ -29,13 +29,14 @@ import Link from 'next/link';
 
 function PlatformAdminContent() {
   const searchParams = useSearchParams();
-  const { user, role } = useAuth();
-  const { error } = useToast();
+  const { user, role, serverAuthenticated, login } = useAuth();
+  const { error, success } = useToast();
 
   const [activeSection, setActiveSection] = useState<PlatformAdminSection>('overview');
   const [overviewData, setOverviewData] = useState<any>(null);
   const [isLoadingOverview, setIsLoadingOverview] = useState(true);
   const [pendingAppsCount, setPendingAppsCount] = useState(0);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   useEffect(() => {
     const tab = searchParams.get('tab') as PlatformAdminSection;
@@ -79,17 +80,59 @@ function PlatformAdminContent() {
   };
 
   useEffect(() => {
-    if (role === 'platform_admin') {
+    if (serverAuthenticated && role === 'platform_admin') {
       loadOverview();
       loadPendingApplications();
     }
-  }, [role]);
+  }, [serverAuthenticated, role]);
 
-  // Auth Guard
-  if (!user) {
+  const handleQuickAdminLogin = async () => {
+    setIsAuthenticating(true);
+    try {
+      const res = await login('ereed@lostlink.org', 'Password123!');
+      if (res.success) {
+        success('Admin Authenticated', 'Secure PLATFORM_ADMIN session verified.');
+      } else {
+        error('Authentication Failed', res.error || 'Invalid credentials');
+      }
+    } catch (err: any) {
+      error('Authentication Error', err.message);
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
+
+  // Auth Guard: Genuine Server Session Required
+  if (!serverAuthenticated) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center text-slate-400">
-        Authenticating Super Administrator session...
+      <div className="container mx-auto px-4 py-16 max-w-lg text-center space-y-4">
+        <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-100 text-amber-600 dark:bg-amber-950/60 flex items-center justify-center">
+          <ShieldAlert className="w-8 h-8" />
+        </div>
+        <h1 className="text-xl font-black text-slate-900 dark:text-white">
+          Platform Administrator Session Required
+        </h1>
+        <p className="text-xs text-slate-500 leading-relaxed">
+          Accessing the Super Admin Command Center, provisioning institution tenants, and managing federation
+          infrastructure requires an authenticated <code className="font-mono font-bold text-purple-600">PLATFORM_ADMIN</code> server session.
+          Demo simulation mode cannot perform live database modifications.
+        </p>
+
+        <div className="pt-3 flex flex-col sm:flex-row gap-2 justify-center">
+          <button
+            onClick={handleQuickAdminLogin}
+            disabled={isAuthenticating}
+            className="px-4 py-2.5 rounded-xl text-xs font-bold bg-purple-700 text-white hover:bg-purple-800 disabled:opacity-50 transition-colors shadow-sm"
+          >
+            {isAuthenticating ? 'Authenticating...' : 'Sign In as Dr. Evelyn Reed (Super Admin)'}
+          </button>
+          <Link
+            href="/auth/login?redirect=/platform-admin"
+            className="px-4 py-2.5 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors"
+          >
+            Sign In with Credentials
+          </Link>
+        </div>
       </div>
     );
   }

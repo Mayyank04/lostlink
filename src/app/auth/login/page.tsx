@@ -38,11 +38,22 @@ export default function LoginPage() {
     }
   };
 
-  const handleQuickLogin = (userId: string) => {
-    switchUser(userId);
-    const u = MOCK_USERS.find((usr) => usr.id === userId);
-    success('Demo Switch', `Signed in as ${u?.name} (${u?.role.replace('_', ' ')}).`);
-    router.push('/dashboard');
+  const handleQuickLogin = async (userId: string) => {
+    setIsLoading(true);
+    try {
+      await switchUser(userId);
+      const u = MOCK_USERS.find((usr) => usr.id === userId);
+      success('Signed In Successfully', `Authenticated as ${u?.name} (${u?.role.replace('_', ' ')}).`);
+      if (u?.role === 'platform_admin') {
+        router.push('/platform-admin');
+      } else {
+        router.push('/dashboard');
+      }
+    } catch {
+      error('Sign In Error', 'Could not complete persona sign in.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -124,6 +135,7 @@ export default function LoginPage() {
 
             <button
               onClick={() => handleQuickLogin('user-admin-apex')}
+              disabled={isLoading}
               className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-left text-xs flex items-center justify-between transition-colors"
             >
               <div>
@@ -131,6 +143,18 @@ export default function LoginPage() {
                 <p className="text-[10px] text-slate-400">Campus Safety Desk Custodian</p>
               </div>
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 font-semibold">College Admin</span>
+            </button>
+
+            <button
+              onClick={() => handleQuickLogin('user-platform-admin')}
+              disabled={isLoading}
+              className="p-2 rounded-lg border border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-950/40 text-left text-xs flex items-center justify-between transition-colors"
+            >
+              <div>
+                <p className="font-bold text-purple-950 dark:text-purple-200">Dr. Evelyn Reed (Super Admin)</p>
+                <p className="text-[10px] text-slate-400">Platform Governance & Institutional Provisioning</p>
+              </div>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 dark:bg-purple-900/60 dark:text-purple-300 font-semibold">Super Admin</span>
             </button>
           </div>
         </div>

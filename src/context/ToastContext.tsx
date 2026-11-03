@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 import { CheckCircle2, AlertCircle, Info, AlertTriangle, X } from 'lucide-react';
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning';
@@ -27,6 +27,7 @@ const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
 export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const recentToastsRef = useRef<Map<string, number>>(new Map());
 
   const removeToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -34,10 +35,35 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const showToast = useCallback(
     (type: ToastType, title: string, message?: string, duration = 4000) => {
-      const id = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      const now = Date.now();
+      const dedupKey = `${type}:${title}:${message || ''}`;
+      const lastShown = recentToastsRef.current.get(dedupKey) || 0;
+
+      // Deduplicate identical toasts within a 2.5-second cooldown window
+      if (now - lastShown < 2500) {
+        return;
+      }
+      recentToastsRef.current.set(dedupKey, now);
+
+      // Clean up old cooldown entries periodically
+      if (recentToastsRef.current.size > 50) {
+        for (const [key, timestamp] of recentToastsRef.current.entries()) {
+          if (now - timestamp > 10000) {
+            recentToastsRef.current.delete(key);
+          }
+        }
+      }
+
+      const id = `toast-${now}-${Math.random().toString(36).substring(2, 6)}`;
       const newToast: Toast = { id, type, title, message, duration };
 
-      setToasts((prev) => [...prev, newToast]);
+      setToasts((prev) => {
+        // Also ensure not already present in the current visible list
+        if (prev.some((t) => t.type === type && t.title === title && t.message === message)) {
+          return prev;
+        }
+        return [...prev, newToast];
+      });
 
       if (duration > 0) {
         setTimeout(() => {

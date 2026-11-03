@@ -24,6 +24,16 @@ import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/context/ToastContext';
 
+export function generateSlug(text: string): string {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/['"]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 32);
+}
+
 export function CollegesSection({ initialAddOpen = false }: { initialAddOpen?: boolean }) {
   const { success, error } = useToast();
   const [colleges, setColleges] = useState<any[]>([]);
@@ -44,7 +54,9 @@ export function CollegesSection({ initialAddOpen = false }: { initialAddOpen?: b
   const [name, setName] = useState('');
   const [shortName, setShortName] = useState('');
   const [slug, setSlug] = useState('');
+  const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
   const [emailDomains, setEmailDomains] = useState('');
+  const [domainError, setDomainError] = useState<string | null>(null);
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
   const [institutionType, setInstitutionType] = useState('University');
@@ -107,23 +119,69 @@ export function CollegesSection({ initialAddOpen = false }: { initialAddOpen?: b
   // Handle Add College Submit
   const handleAddCollege = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !slug.trim() || !emailDomains.trim()) {
-      error('Validation Error', 'Name, slug, and email domains are required');
+    if (isSubmitting) return;
+
+    if (!name.trim()) {
+      error('Validation Error', 'College name is required');
       return;
     }
 
+    const cleanSlug = generateSlug(slug || shortName || name);
+    if (!cleanSlug || cleanSlug.length < 2) {
+      error('Validation Error', 'Tenant slug must be at least 2 characters');
+      return;
+    }
+
+    if (!emailDomains.trim()) {
+      error('Validation Error', 'At least one approved email domain is required');
+      return;
+    }
+
+    const rawDomains = emailDomains
+      .split(',')
+      .map((d) => d.trim().toLowerCase())
+      .filter(Boolean);
+
+    if (rawDomains.length === 0) {
+      error('Validation Error', 'At least one approved email domain is required');
+      return;
+    }
+
+    // Check for user emails in domain field (e.g. mayank@iilm.edu)
+    const emailWithAt = rawDomains.find((d) => d.includes('@'));
+    if (emailWithAt) {
+      const msg = `Enter domain only (e.g. 'iilm.edu'), not an email address like '${emailWithAt}'`;
+      setDomainError(msg);
+      error('Invalid Domain', msg);
+      return;
+    }
+
+    const domainRegex = /^[a-z0-9]+(-[a-z0-9]+)*(\.[a-z0-9]+(-[a-z0-9]+)*)+$/i;
+    const invalidDomain = rawDomains.find((d) => !domainRegex.test(d));
+    if (invalidDomain) {
+      const msg = `"${invalidDomain}" is not a valid domain. Example: "iilm.edu" or "students.iilm.edu"`;
+      setDomainError(msg);
+      error('Invalid Domain Format', msg);
+      return;
+    }
+
+    // Validate admin email if provided
+    if (adminEmail.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(adminEmail.trim())) {
+        error('Invalid Administrator Email', 'Please provide a valid administrator email address');
+        return;
+      }
+    }
+
+    setDomainError(null);
     setIsSubmitting(true);
     try {
-      const domains = emailDomains
-        .split(',')
-        .map((d) => d.trim().replace(/^@/, ''))
-        .filter(Boolean);
-
       const payload: any = {
         name: name.trim(),
         shortName: shortName.trim() || undefined,
-        slug: slug.trim().toLowerCase(),
-        emailDomains: domains,
+        slug: cleanSlug,
+        emailDomains: rawDomains,
         city: city.trim() || 'Main City',
         state: state.trim() || 'State',
         institutionType,
@@ -139,7 +197,7 @@ export function CollegesSection({ initialAddOpen = false }: { initialAddOpen?: b
 
       if (adminEmail.trim()) {
         payload.collegeAdmin = {
-          email: adminEmail.trim(),
+          email: adminEmail.trim().toLowerCase(),
           name: adminName.trim() || 'College Administrator',
         };
       }
@@ -151,16 +209,16 @@ export function CollegesSection({ initialAddOpen = false }: { initialAddOpen?: b
       });
 
       const data = await res.json();
-      if (data.success || data.college) {
+      if (res.status === 201 || data.success || data.college) {
         success('College Onboarded', `Successfully added ${data.college?.name || name}!`);
         setAddModalOpen(false);
         resetAddForm();
-        loadColleges();
+        await loadColleges();
       } else {
-        error('Onboarding Failed', data.error || 'Server error');
+        error('Onboarding Failed', data.error || 'Server error provisioning tenant');
       }
     } catch (err: any) {
-      error('Network Error', err.message);
+      error('Network Error', err.message || 'Failed to communicate with provisioning service');
     } finally {
       setIsSubmitting(false);
     }
@@ -170,7 +228,9 @@ export function CollegesSection({ initialAddOpen = false }: { initialAddOpen?: b
     setName('');
     setShortName('');
     setSlug('');
+    setSlugManuallyEdited(false);
     setEmailDomains('');
+    setDomainError(null);
     setCity('');
     setState('');
     setWebsite('');
@@ -498,33 +558,64 @@ export function CollegesSection({ initialAddOpen = false }: { initialAddOpen?: b
               placeholder="e.g. Carnegie Mellon University"
               value={name}
               onChange={(e) => {
-                setName(e.target.value);
-                if (!slug) {
-                  setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 30));
+                const val = e.target.value;
+                setName(val);
+                if (!slugManuallyEdited) {
+                  setSlug(generateSlug(shortName || val));
                 }
               }}
+              required
             />
             <Input
               label="Short Name / Abbr"
               placeholder="e.g. CMU, MIT"
               value={shortName}
-              onChange={(e) => setShortName(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                setShortName(val);
+                if (!slugManuallyEdited && val.trim()) {
+                  setSlug(generateSlug(val));
+                }
+              }}
             />
-            <Input
-              label="Tenant Slug *"
-              placeholder="e.g. cmu"
-              value={slug}
-              onChange={(e) => setSlug(e.target.value)}
-            />
+            <div>
+              <Input
+                label="Tenant Slug *"
+                placeholder="e.g. cmu"
+                value={slug}
+                onChange={(e) => {
+                  setSlugManuallyEdited(true);
+                  setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''));
+                }}
+                required
+              />
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                URL identifier (auto-derived or custom)
+              </p>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Input
-              label="Approved Email Domains * (comma-separated)"
-              placeholder="e.g. cmu.edu, andrew.cmu.edu"
-              value={emailDomains}
-              onChange={(e) => setEmailDomains(e.target.value)}
-            />
+            <div>
+              <Input
+                label="Approved Email Domains * (comma-separated)"
+                placeholder="e.g. cmu.edu, andrew.cmu.edu"
+                value={emailDomains}
+                onChange={(e) => {
+                  setEmailDomains(e.target.value);
+                  if (domainError) setDomainError(null);
+                }}
+                required
+              />
+              <p className="text-[10px] text-slate-500 mt-0.5">
+                Institutional domains only (e.g. &apos;iilm.edu&apos;). Do not include &apos;@&apos; or emails.
+              </p>
+              {domainError && (
+                <p className="text-[10px] text-rose-600 font-semibold mt-1">
+                  {domainError}
+                </p>
+              )}
+            </div>
             <div>
               <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">
                 Institution Type
@@ -619,7 +710,7 @@ export function CollegesSection({ initialAddOpen = false }: { initialAddOpen?: b
               Cancel
             </Button>
             <Button size="sm" variant="primary" type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Provisioning...' : 'Provision Institution Tenant'}
+              {isSubmitting ? 'Provisioning Tenant...' : 'Provision Institution Tenant'}
             </Button>
           </div>
         </form>
