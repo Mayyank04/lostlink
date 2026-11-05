@@ -13,13 +13,13 @@ spec:
   policyTypes:
     - Ingress
   ingress:
-    # Allow connections only from web pods, worker pods, and migration jobs on port 5432
+    # Allow connections only from web pods, worker pods, migration jobs, and backup jobs on port 5432
     - from:
         - podSelector:
             matchExpressions:
               - key: app
                 operator: In
-                values: ["lostlink-web", "lostlink-worker", "lostlink-db-migrate"]
+                values: ["lostlink-web", "lostlink-worker", "lostlink-db-migrate", "lostlink-backup"]
       ports:
         - protocol: TCP
           port: 5432

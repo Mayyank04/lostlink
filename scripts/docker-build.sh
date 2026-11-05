@@ -1,20 +1,52 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# LOSTLINK 2.0 — DOCKER IMAGES BUILD SCRIPT
+# LOSTLINK 2.0 — DOCKER IMAGES BUILD SCRIPT (TARGET: linux/amd64)
 # ==============================================================================
 set -euo pipefail
 
 BOLD="\033[1m"
 GREEN="\033[32m"
 BLUE="\033[34m"
+YELLOW="\033[33m"
 RESET="\033[0m"
 
-echo -e "${BOLD}${BLUE}==> Building LostLink 2.0 Web Application Image...${RESET}"
-docker build -t lostlink-web:latest -f docker/Dockerfile.web .
+# Default to linux/amd64 for Vultr Cloud Compute / x86_64 VPS nodes
+TARGET_PLATFORM="${TARGET_PLATFORM:-linux/amd64}"
+REGISTRY="${DOCKER_REGISTRY:-}" # e.g. ghcr.io/username or docker.io/username
+TAG="${IMAGE_TAG:-latest}"
 
-echo -e "${BOLD}${BLUE}==> Building LostLink 2.0 Background Worker Image...${RESET}"
-docker build -t lostlink-worker:latest -f docker/Dockerfile.worker .
+WEB_IMAGE="lostlink-web:${TAG}"
+WORKER_IMAGE="lostlink-worker:${TAG}"
 
-echo -e "${BOLD}${GREEN}==> Successfully built all Docker images!${RESET}"
-docker images | grep -E "lostlink-web|lostlink-worker"
+if [[ -n "${REGISTRY}" ]]; then
+  WEB_IMAGE="${REGISTRY}/lostlink-web:${TAG}"
+  WORKER_IMAGE="${REGISTRY}/lostlink-worker:${TAG}"
+fi
+
+echo -e "${BOLD}${BLUE}=====================================================================${RESET}"
+echo -e "${BOLD}${BLUE}   LostLink 2.0 — Docker Production Container Builder                ${RESET}"
+echo -e "   Target Architecture: ${YELLOW}${TARGET_PLATFORM}${RESET}"
+echo -e "   Web Target:          ${GREEN}${WEB_IMAGE}${RESET}"
+echo -e "   Worker Target:       ${GREEN}${WORKER_IMAGE}${RESET}"
+echo -e "${BOLD}${BLUE}=====================================================================${RESET}"
+
+echo -e "\n${BOLD}${BLUE}[1/2] Building Next.js Web Application Container (${TARGET_PLATFORM})...${RESET}"
+docker buildx build \
+  --platform "${TARGET_PLATFORM}" \
+  -t "${WEB_IMAGE}" \
+  -f docker/Dockerfile.web \
+  --load \
+  .
+
+echo -e "\n${BOLD}${BLUE}[2/2] Building Matching & Outbox Worker Container (${TARGET_PLATFORM})...${RESET}"
+docker buildx build \
+  --platform "${TARGET_PLATFORM}" \
+  -t "${WORKER_IMAGE}" \
+  -f docker/Dockerfile.worker \
+  --load \
+  .
+
+echo -e "\n${BOLD}${GREEN}==> Successfully built all production containers for ${TARGET_PLATFORM}!${RESET}"
+docker images | grep -E "lostlink-web|lostlink-worker" || true
+
 

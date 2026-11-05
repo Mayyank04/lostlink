@@ -30,6 +30,8 @@ jobs:
             dockerfile: docker/Dockerfile.web
           - image: lostlink-worker
             dockerfile: docker/Dockerfile.worker
+          - image: lostlink-campus-worker
+            dockerfile: docker/Dockerfile.campus-worker
 
     steps:
       - name: Checkout Codebase

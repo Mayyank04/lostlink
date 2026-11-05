@@ -61,12 +61,12 @@ function sanitizeFilename(name: string): string {
 }
 
 export function getStorageConfig() {
-  const provider = (process.env.STORAGE_PROVIDER || 'local').toLowerCase();
+  const provider = (process.env.STORAGE_PROVIDER || process.env.STORAGE_DRIVER || 'local').toLowerCase();
   const endpoint = process.env.STORAGE_ENDPOINT || process.env.S3_ENDPOINT;
   const region = process.env.STORAGE_REGION || process.env.S3_REGION || 'auto';
   const accessKeyId = process.env.STORAGE_ACCESS_KEY_ID || process.env.S3_ACCESS_KEY_ID;
   const secretAccessKey = process.env.STORAGE_SECRET_ACCESS_KEY || process.env.S3_SECRET_ACCESS_KEY;
-  const bucket = process.env.STORAGE_BUCKET_NAME || process.env.S3_BUCKET_NAME || 'lostlink-media';
+  const bucket = process.env.STORAGE_BUCKET_NAME || process.env.S3_BUCKET_NAME || process.env.S3_BUCKET || 'lostlink-media';
   const publicBase =
     process.env.STORAGE_PUBLIC_URL ||
     process.env.S3_PUBLIC_URL ||
@@ -105,8 +105,9 @@ function getS3Client(): { client: S3Client; bucket: string; publicBase: string }
       secretAccessKey: config.secretAccessKey,
     },
     forcePathStyle:
-      config.provider === 's3' &&
-      (config.endpoint?.includes('localhost') || config.endpoint?.includes('127.0.0.1') || config.endpoint?.includes('minio')),
+      process.env.STORAGE_FORCE_PATH_STYLE === 'true' ||
+      process.env.S3_FORCE_PATH_STYLE === 'true' ||
+      (config.endpoint ? !config.endpoint.includes('amazonaws.com') : false),
   });
 
   return { client, bucket: config.bucket, publicBase: config.publicBase };

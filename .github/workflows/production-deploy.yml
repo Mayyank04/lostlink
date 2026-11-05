@@ -10,6 +10,10 @@ on:
         description: 'Type "DEPLOY" to confirm production release rollout'
         required: true
         default: 'NO'
+      overlay:
+        description: 'Kustomize overlay to deploy (e.g. k8s/overlays/vultr or k8s/overlays/production)'
+        required: true
+        default: 'k8s/overlays/vultr'
 
 permissions:
   contents: read
@@ -47,13 +51,14 @@ jobs:
       - name: Execute Full Test Suite
         run: npm test
 
-      - name: Validate Production Kustomize Overlay
+      - name: Validate Kustomize Overlays
         run: |
           kubectl kustomize k8s/overlays/production > /dev/null
-          echo "[+] Production Kustomize manifests are valid."
+          kubectl kustomize k8s/overlays/vultr > /dev/null
+          echo "[+] All production & Vultr Kustomize manifests are valid."
 
   publish-immutable-images:
-    name: Build & Push Immutable SHA Tagged Images
+    name: Build & Push Immutable linux/amd64 Images
     needs: preflight-audit
     runs-on: ubuntu-latest
     steps:
@@ -74,29 +79,42 @@ jobs:
         id: meta
         run: |
           IMAGE_WEB="ghcr.io/${{ github.repository }}/lostlink-web"
+          IMAGE_WORKER="ghcr.io/${{ github.repository }}/lostlink-worker"
           IMAGE_CAMPUS="ghcr.io/${{ github.repository }}/lostlink-campus-worker"
           SHA_SHORT=$(git rev-parse --short HEAD)
           echo "web_tag=${IMAGE_WEB}:${SHA_SHORT},${IMAGE_WEB}:latest" >> $GITHUB_OUTPUT
+          echo "worker_tag=${IMAGE_WORKER}:${SHA_SHORT},${IMAGE_WORKER}:latest" >> $GITHUB_OUTPUT
           echo "campus_tag=${IMAGE_CAMPUS}:${SHA_SHORT},${IMAGE_CAMPUS}:latest" >> $GITHUB_OUTPUT
 
-      - name: Build & Push Production Web Image
+      - name: Build & Push Production Web Image (linux/amd64)
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: docker/Dockerfile
+          file: docker/Dockerfile.web
+          platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.web_tag }}
 
-      - name: Build & Push Production Campus Worker Image
+      - name: Build & Push Production Cloud Worker Image (linux/amd64)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.worker
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.worker_tag }}
+
+      - name: Build & Push Production Campus Worker Image (linux/amd64)
         uses: docker/build-push-action@v5
         with:
           context: .
           file: docker/Dockerfile.campus-worker
+          platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.campus_tag }}
 
   deploy-production:
-    name: Zero-Downtime Rollout to Public Cloud Kubernetes
+    name: Zero-Downtime Rollout to Kubernetes VPS
     needs: publish-immutable-images
     runs-on: ubuntu-latest
     environment: production
@@ -113,13 +131,14 @@ jobs:
           echo "${KUBECONFIG_DATA}" | base64 -d > ~/.kube/config
           chmod 600 ~/.kube/config
 
-      - name: Deploy Production Manifests & Verify Health
+      - name: Deploy Selected Overlay & Verify Health
         if: env.KUBECONFIG_DATA != ''
         env:
           KUBECONFIG_DATA: ${{ secrets.KUBECONFIG_DATA }}
+          DEPLOY_OVERLAY: ${{ github.event.inputs.overlay || 'k8s/overlays/vultr' }}
         run: |
-          echo "[1/4] Applying production overlay..."
-          kubectl apply -k k8s/overlays/production
+          echo "[1/4] Applying overlay: ${DEPLOY_OVERLAY}..."
+          kubectl apply -k "${DEPLOY_OVERLAY}"
           
           echo "[2/4] Waiting for Web rollout..."
           if ! kubectl rollout status deployment/lostlink-web -n lostlink --timeout=180s; then
