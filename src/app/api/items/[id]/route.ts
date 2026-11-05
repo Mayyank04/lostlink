@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth/session';
 import { requireAuth, errorResponse } from '@/lib/auth/tenant';
+import { decryptEvidence } from '@/lib/crypto/evidenceEncryption';
 import { ItemStatus, UserRole } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
@@ -56,11 +57,7 @@ export async function GET(
 
     let parsedEvidence: any = null;
     if (canViewEvidence && item.privateEvidence) {
-      try {
-        parsedEvidence = JSON.parse(item.privateEvidence.encryptedEvidence);
-      } catch {
-        parsedEvidence = item.privateEvidence.encryptedEvidence;
-      }
+      parsedEvidence = decryptEvidence(item.privateEvidence.encryptedEvidence);
     }
 
     return NextResponse.json({
@@ -152,8 +149,27 @@ export async function PATCH(
     const updateData: any = {};
     if (result.data.title) updateData.name = result.data.title;
     if (result.data.description) updateData.description = result.data.description;
-    if (result.data.status) updateData.status = result.data.status;
     if (result.data.locationDescription) updateData.locationBuilding = result.data.locationDescription;
+
+    // Strict State Machine: Disallow bypassing claim approval and verified handover
+    if (result.data.status) {
+      if (result.data.status === ItemStatus.RETURNED) {
+        if (!isAdmin) {
+          return NextResponse.json(
+            { error: 'Directly marking an item as RETURNED is not permitted. Items can only be marked returned through verified handover confirmation or administrative review.' },
+            { status: 403 }
+          );
+        }
+      } else if (result.data.status === ItemStatus.CLAIM_PENDING) {
+        if (!isAdmin) {
+          return NextResponse.json(
+            { error: 'Item status cannot be manually set to CLAIM_PENDING. This transition is managed by the ownership verification workflow.' },
+            { status: 403 }
+          );
+        }
+      }
+      updateData.status = result.data.status;
+    }
 
     const updated = await prisma.$transaction(async (tx) => {
       const item = await tx.item.update({

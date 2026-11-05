@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { hashPassword } from '@/lib/auth/password';
 import { createSession, setSessionCookie } from '@/lib/auth/session';
 import { checkRateLimit, getClientIp } from '@/lib/auth/rateLimit';
+import { createEmailVerificationOTP } from '@/lib/auth/emailVerification';
 import { MembershipStatus, UserRole } from '@prisma/client';
 
 const registerSchema = z.object({
@@ -56,7 +57,8 @@ export async function POST(req: Request) {
 
     const emailDomain = email.split('@')[1];
     const isDomainAllowed = college.emailDomains.some((d) => d.toLowerCase() === emailDomain);
-    const membershipStatus = isDomainAllowed ? MembershipStatus.VERIFIED : MembershipStatus.PENDING;
+    // Strict Verification: Email domain match is required, but ownership requires OTP verification
+    const membershipStatus = MembershipStatus.PENDING;
 
     const existingUser = await prisma.user.findUnique({
       where: { email },
@@ -89,8 +91,8 @@ export async function POST(req: Request) {
           collegeId: college.id,
           status: membershipStatus,
           studentIdentifier: studentId || null,
-          verificationMethod: isDomainAllowed ? 'EMAIL_DOMAIN' : 'ID_CARD',
-          verifiedAt: membershipStatus === MembershipStatus.VERIFIED ? new Date() : null,
+          verificationMethod: isDomainAllowed ? 'EMAIL_OTP' : 'ID_CARD',
+          verifiedAt: null,
         },
       });
 
@@ -107,6 +109,9 @@ export async function POST(req: Request) {
 
       return user;
     });
+
+    // Automatically generate and dispatch secure email verification OTP
+    await createEmailVerificationOTP(newUser.email);
 
     const { token, expiresAt } = await createSession(newUser.id);
     await setSessionCookie(token, expiresAt);

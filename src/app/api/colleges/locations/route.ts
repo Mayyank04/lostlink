@@ -15,35 +15,49 @@ export async function GET(req: NextRequest) {
       isArchived: false,
     };
 
-    // 1. Fetch all distinct countries available in active colleges
-    const allColleges = await prisma.college.findMany({
+    // 1. Fetch distinct countries directly from database
+    const countryRows = await prisma.college.findMany({
       where: baseWhere,
-      select: { country: true, state: true, city: true },
+      distinct: ['country'],
+      select: { country: true },
+      orderBy: { country: 'asc' },
     });
+    const countries = Array.from(new Set(countryRows.map((r) => r.country.trim()).filter(Boolean))).sort((a, b) =>
+      a.localeCompare(b)
+    );
 
-    const countriesSet = new Set<string>();
-    const statesSet = new Set<string>();
-    const citiesSet = new Set<string>();
-
-    for (const c of allColleges) {
-      if (c.country) countriesSet.add(c.country.trim());
-
-      // Filter states by country if country parameter is passed
-      const matchCountry = !country || country === 'ALL' || c.country.toLowerCase() === country.toLowerCase();
-      if (matchCountry && c.state) {
-        statesSet.add(c.state.trim());
-      }
-
-      // Filter cities by country and state if provided
-      const matchState = !state || state === 'ALL' || c.state.toLowerCase() === state.toLowerCase();
-      if (matchCountry && matchState && c.city) {
-        citiesSet.add(c.city.trim());
-      }
+    // 2. Fetch distinct states (filtered by country if specified)
+    const stateWhere: any = { ...baseWhere };
+    if (country && country !== 'ALL') {
+      stateWhere.country = { equals: country, mode: 'insensitive' };
     }
+    const stateRows = await prisma.college.findMany({
+      where: stateWhere,
+      distinct: ['state'],
+      select: { state: true },
+      orderBy: { state: 'asc' },
+    });
+    const states = Array.from(new Set(stateRows.map((r) => r.state.trim()).filter(Boolean))).sort((a, b) =>
+      a.localeCompare(b)
+    );
 
-    const countries = Array.from(countriesSet).sort((a, b) => a.localeCompare(b));
-    const states = Array.from(statesSet).sort((a, b) => a.localeCompare(b));
-    const cities = Array.from(citiesSet).sort((a, b) => a.localeCompare(b));
+    // 3. Fetch distinct cities (filtered by country and state if specified)
+    const cityWhere: any = { ...baseWhere };
+    if (country && country !== 'ALL') {
+      cityWhere.country = { equals: country, mode: 'insensitive' };
+    }
+    if (state && state !== 'ALL') {
+      cityWhere.state = { equals: state, mode: 'insensitive' };
+    }
+    const cityRows = await prisma.college.findMany({
+      where: cityWhere,
+      distinct: ['city'],
+      select: { city: true },
+      orderBy: { city: 'asc' },
+    });
+    const cities = Array.from(new Set(cityRows.map((r) => r.city.trim()).filter(Boolean))).sort((a, b) =>
+      a.localeCompare(b)
+    );
 
     return NextResponse.json({
       success: true,

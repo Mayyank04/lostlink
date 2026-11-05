@@ -644,6 +644,15 @@ model PasswordResetToken {
   @@index([token])
 }
 
+model RateLimitBucket {
+  key        String   @id
+  points     Int      @default(1)
+  expireAt   DateTime
+  updatedAt  DateTime @updatedAt
+
+  @@index([expireAt])
+}
+
 // ------------------------------------------------------------------------------
 // SUPER ADMIN & MULTI-COLLEGE ONBOARDING GOVERNANCE
 // ------------------------------------------------------------------------------

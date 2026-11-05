@@ -28,20 +28,41 @@ function RegisterForm() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Dynamically load active colleges from database
+  // Dynamically load active colleges from database and resolve explicit query college ID
   useEffect(() => {
+    // 1. If explicit college ID in query, resolve exact college regardless of catalog size or pagination
+    if (queryCollegeId) {
+      fetch(`/api/colleges/search?id=${encodeURIComponent(queryCollegeId)}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.colleges && data.colleges.length > 0) {
+            const targetCol = data.colleges[0];
+            setCollegeId(targetCol.id);
+            setSelectedCollegeObj(targetCol);
+            setColleges((prev) => {
+              if (prev.some((c) => c.id === targetCol.id)) return prev;
+              return [targetCol, ...prev];
+            });
+          }
+        })
+        .catch(() => {});
+    }
+
+    // 2. Load active college directory for search selector
     fetch('/api/colleges/search?limit=50')
       .then((res) => res.json())
       .then((data) => {
         if (data.colleges && data.colleges.length > 0) {
-          setColleges(data.colleges);
-          if (queryCollegeId) {
-            const found = data.colleges.find((c: any) => c.id === queryCollegeId);
-            if (found) {
-              setCollegeId(found.id);
-              setSelectedCollegeObj(found);
+          setColleges((prev) => {
+            const combined = [...prev];
+            for (const col of data.colleges) {
+              if (!combined.some((c) => c.id === col.id)) {
+                combined.push(col);
+              }
             }
-          } else if (!collegeId) {
+            return combined;
+          });
+          if (!queryCollegeId && !collegeId) {
             setCollegeId(data.colleges[0].id);
             setSelectedCollegeObj(data.colleges[0]);
           }

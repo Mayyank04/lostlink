@@ -41,11 +41,12 @@ spec:
           image: lostlink-worker:latest
           imagePullPolicy: IfNotPresent
           command:
-            - npx
-            - prisma
-            - db
-            - push
-            - --skip-generate
+            - /bin/sh
+            - -c
+            - |
+              echo "Applying database migrations..."
+              npx prisma migrate deploy || npx prisma db push --skip-generate
+              echo "Database schema synchronized successfully."
           envFrom:
             - configMapRef:
                 name: lostlink-config

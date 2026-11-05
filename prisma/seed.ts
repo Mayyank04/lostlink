@@ -11,6 +11,13 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Starting LostLink 2.0 Database Seeding...');
 
+  // PRODUCTION SAFETY GUARD: Prevent accidental wiping of production database
+  if (process.env.NODE_ENV === 'production' && process.env.ALLOW_DESTRUCTIVE_SEED !== 'true') {
+    throw new Error(
+      'FATAL: Destructive database seeding is strictly prohibited in production environments. Set ALLOW_DESTRUCTIVE_SEED=true to override for isolated test suites.'
+    );
+  }
+
   // 1. Clean existing records in correct dependency order
   await prisma.matchingJob.deleteMany();
   await prisma.campusWorkerKey.deleteMany();

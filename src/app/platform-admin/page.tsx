@@ -86,22 +86,6 @@ function PlatformAdminContent() {
     }
   }, [serverAuthenticated, role]);
 
-  const handleQuickAdminLogin = async () => {
-    setIsAuthenticating(true);
-    try {
-      const res = await login('ereed@lostlink.org', 'Password123!');
-      if (res.success) {
-        success('Admin Authenticated', 'Secure PLATFORM_ADMIN session verified.');
-      } else {
-        error('Authentication Failed', res.error || 'Invalid credentials');
-      }
-    } catch (err: any) {
-      error('Authentication Error', err.message);
-    } finally {
-      setIsAuthenticating(false);
-    }
-  };
-
   // Auth Guard: Genuine Server Session Required
   if (!serverAuthenticated) {
     return (
@@ -119,18 +103,17 @@ function PlatformAdminContent() {
         </p>
 
         <div className="pt-3 flex flex-col sm:flex-row gap-2 justify-center">
-          <button
-            onClick={handleQuickAdminLogin}
-            disabled={isAuthenticating}
-            className="px-4 py-2.5 rounded-xl text-xs font-bold bg-purple-700 text-white hover:bg-purple-800 disabled:opacity-50 transition-colors shadow-sm"
-          >
-            {isAuthenticating ? 'Authenticating...' : 'Sign In as Dr. Evelyn Reed (Super Admin)'}
-          </button>
           <Link
             href="/auth/login?redirect=/platform-admin"
+            className="px-5 py-2.5 rounded-xl text-xs font-bold bg-purple-700 text-white hover:bg-purple-800 transition-colors shadow-sm"
+          >
+            Sign In with Administrator Credentials
+          </Link>
+          <Link
+            href="/dashboard"
             className="px-4 py-2.5 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors"
           >
-            Sign In with Credentials
+            Return to Student Dashboard
           </Link>
         </div>
       </div>

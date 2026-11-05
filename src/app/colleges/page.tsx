@@ -31,7 +31,9 @@ function CollegesPageContent() {
   const { switchCollege, activeCollege } = useAuth();
   const { success } = useToast();
 
-  const flow = searchParams.get('flow') || searchParams.get('select') ? 'register' : 'browse';
+  const flowParam = searchParams.get('flow');
+  const selectParam = searchParams.get('select');
+  const flow = flowParam === 'register' || selectParam === 'true' ? 'register' : 'browse';
   const initialQ = searchParams.get('q') || '';
   const initialCountry = searchParams.get('country') || '';
   const initialState = searchParams.get('state') || '';

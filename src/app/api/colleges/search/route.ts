@@ -11,6 +11,7 @@ export async function GET(req: NextRequest) {
     const country = searchParams.get('country')?.trim() || '';
     const state = searchParams.get('state')?.trim() || '';
     const city = searchParams.get('city')?.trim() || '';
+    const id = searchParams.get('id')?.trim() || '';
     const sort = searchParams.get('sort')?.trim() || 'name_asc';
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '12', 10) || 12));
@@ -21,6 +22,10 @@ export async function GET(req: NextRequest) {
       status: CollegeStatus.ACTIVE,
       isArchived: false,
     };
+
+    if (id) {
+      where.id = id;
+    }
 
     // Location filters (case-insensitive)
     if (country && country !== 'ALL') {

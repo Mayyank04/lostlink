@@ -5,6 +5,7 @@ import { getCurrentUser } from '@/lib/auth/session';
 import { requireAuth, requireCollegeMembership, errorResponse } from '@/lib/auth/tenant';
 import { triggerMatchingEngineForItem } from '@/lib/matching/matchEngine';
 import { enqueueMatchingJob } from '@/lib/hybrid/queue';
+import { encryptEvidence } from '@/lib/crypto/evidenceEncryption';
 import { ItemReportType, ItemStatus } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
@@ -55,19 +56,24 @@ export async function GET(req: Request) {
     const campusId = searchParams.get('campusId');
     const category = searchParams.get('category');
     const statusParam = searchParams.get('status');
-    const status = (statusParam as ItemStatus | null) || ItemStatus.OPEN;
     const search = searchParams.get('search');
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '20', 10)));
     const skip = (page - 1) * limit;
 
-    const whereClause: any = {};
+    const whereClause: any = {
+      isArchived: false,
+    };
 
     if (type) whereClause.type = type;
     if (collegeId) whereClause.collegeId = collegeId;
     if (campusId) whereClause.campusId = campusId;
     if (category && category !== 'All' && category !== 'all') whereClause.category = category;
-    if (status) whereClause.status = status;
+    if (statusParam && statusParam !== 'ALL') {
+      whereClause.status = statusParam as ItemStatus;
+    } else if (!statusParam) {
+      whereClause.status = { not: ItemStatus.CLOSED };
+    }
 
     if (search) {
       whereClause.OR = [
@@ -205,7 +211,7 @@ export async function POST(req: Request) {
         await tx.privateItemEvidence.create({
           data: {
             itemId: item.id,
-            encryptedEvidence: JSON.stringify(data.privateEvidence),
+            encryptedEvidence: encryptEvidence(data.privateEvidence),
           },
         });
       }

@@ -34,6 +34,7 @@ export function CollegesSection({ initialAddOpen = false }: { initialAddOpen?: b
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [countryFilter, setCountryFilter] = useState('');
+  const [availableCountries, setAvailableCountries] = useState<string[]>(['India', 'United States']);
   const [typeFilter, setTypeFilter] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -108,6 +109,17 @@ export function CollegesSection({ initialAddOpen = false }: { initialAddOpen?: b
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetch('/api/colleges/locations')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.countries && data.countries.length > 0) {
+          setAvailableCountries(data.countries);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     loadColleges();
@@ -410,8 +422,11 @@ export function CollegesSection({ initialAddOpen = false }: { initialAddOpen?: b
           className="w-full sm:w-36 py-2 px-3 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
         >
           <option value="">All Countries</option>
-          <option value="India">India</option>
-          <option value="United States">United States</option>
+          {availableCountries.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
         </select>
 
         <select

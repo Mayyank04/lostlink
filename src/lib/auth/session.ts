@@ -9,8 +9,21 @@ const SESSION_DURATION_DAYS = 7;
 const SESSION_DURATION_SECONDS = SESSION_DURATION_DAYS * 24 * 60 * 60;
 
 function getSecretKey(): Uint8Array {
-  const secret = process.env.SESSION_SECRET || 'dev_secret_lostlink_session_key_32_bytes_min_12345';
-  return new TextEncoder().encode(secret.padEnd(32, '!'));
+  const secret =
+    process.env.AUTH_SECRET ||
+    process.env.SESSION_SECRET ||
+    process.env.NEXTAUTH_SECRET;
+
+  if (process.env.NODE_ENV === 'production') {
+    if (!secret || secret.trim().length < 32 || secret.includes('dev_secret') || secret.includes('generate_a_random')) {
+      throw new Error(
+        'CRITICAL SECURITY CONFIGURATION ERROR: AUTH_SECRET or SESSION_SECRET must be configured with a random string of at least 32 characters in production environments.'
+      );
+    }
+  }
+
+  const effectiveSecret = secret || 'dev_secret_lostlink_session_key_32_bytes_min_12345';
+  return new TextEncoder().encode(effectiveSecret.padEnd(32, '!'));
 }
 
 export interface SessionPayload {
@@ -49,6 +62,7 @@ export interface AuthenticatedUser {
  * Creates a database session and returns the signed JWT token
  */
 export async function createSession(userId: string): Promise<{ token: string; expiresAt: Date }> {
+  const secret = getSecretKey();
   const sessionToken = crypto.randomBytes(32).toString('hex');
   const expiresAt = new Date(Date.now() + SESSION_DURATION_SECONDS * 1000);
 
@@ -63,7 +77,6 @@ export async function createSession(userId: string): Promise<{ token: string; ex
     },
   });
 
-  const secret = getSecretKey();
   const token = await new SignJWT({
     sessionId: dbSession.id,
     sessionToken: dbSession.sessionToken,

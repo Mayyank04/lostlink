@@ -44,7 +44,8 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(MOCK_USERS[0]);
+  const isDemoAllowed = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [collegesList, setCollegesList] = useState<College[]>(MOCK_COLLEGES);
   const [activeCollege, setActiveCollege] = useState<College>(MOCK_COLLEGES[0]);
   const [activeCampus, setActiveCampus] = useState<Campus | null>(MOCK_COLLEGES[0].campuses[0]);
@@ -126,15 +127,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     checkServerSession().then((hasServerSession) => {
       if (!hasServerSession) {
-        // If stored active user was platform-admin without a server session, reset to student demo
-        const uId = getActiveUserId();
-        if (uId === 'user-platform-admin') {
-          setActiveUserId('user-maya');
-          setCurrentUser(MOCK_USERS[0]);
+        if (isDemoAllowed) {
+          const uId = getActiveUserId();
+          if (uId === 'user-platform-admin') {
+            setActiveUserId('user-maya');
+            setCurrentUser(MOCK_USERS[0]);
+          } else {
+            updateFromStorage();
+          }
+          setIsDemoMode(true);
         } else {
-          updateFromStorage();
+          setCurrentUser(null);
+          setIsDemoMode(false);
+          setServerAuthenticated(false);
         }
-        setIsDemoMode(true);
       }
     });
 
@@ -143,6 +149,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const switchUser = async (userId: string) => {
+    if (!isDemoAllowed) {
+      console.warn('Identity switching is disabled in production.');
+      return;
+    }
     const targetUser = MOCK_USERS.find((u) => u.id === userId);
     if (!targetUser) return;
 
@@ -204,6 +214,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const loginAs = (email: string) => {
+    if (!isDemoAllowed) {
+      console.warn('loginAs simulation is disabled in production.');
+      return false;
+    }
     const found = MOCK_USERS.find((u) => u.email.toLowerCase() === email.toLowerCase());
     if (found) {
       switchUser(found.id);
