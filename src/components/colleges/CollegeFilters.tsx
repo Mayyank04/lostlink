@@ -141,3 +141,4 @@ export const CollegeFilters: React.FC<CollegeFiltersProps> = ({
     </div>
   );
 };
+

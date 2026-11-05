@@ -165,3 +165,4 @@ export const CollegeCard: React.FC<CollegeCardProps> = ({
     </div>
   );
 };
+

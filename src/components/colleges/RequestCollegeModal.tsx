@@ -241,3 +241,4 @@ export const RequestCollegeModal: React.FC<RequestCollegeModalProps> = ({
     </Modal>
   );
 };
+
