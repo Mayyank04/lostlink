@@ -98,3 +98,4 @@ export async function verifyEmailVerificationOTP(
 
   return { success: true };
 }
+
