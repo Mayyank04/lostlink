@@ -292,3 +292,4 @@ After deploying to your public Vultr server, complete this validation runbook:
 - [ ] **Report Lost/Found Item:** Submit a found item report with photo attachment. Confirm encrypted evidence is stored securely.
 - [ ] **Matching Engine:** Verify background worker logs show match recalculation triggered and candidate scores calculated.
 - [ ] **Claim & Dual OTP Handover:** Initiate ownership claim, approve claim as finder/admin, generate handover challenge OTP, and confirm exchange.
+

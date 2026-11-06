@@ -86,3 +86,4 @@ echo -e "\n${BOLD}${GREEN}======================================================
 echo -e "${BOLD}${GREEN}   [SUCCESS] LostLink 2.0 deployed and healthy on Vultr K3s!         ${RESET}"
 echo -e "${BOLD}${GREEN}=====================================================================${RESET}"
 kubectl get pods,services,ingress -n "${NAMESPACE}"
+

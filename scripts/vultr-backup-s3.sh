@@ -69,3 +69,4 @@ find "${LOCAL_BACKUP_DIR}" -name "lostlink_db_*.sql.gz" -mtime +7 -exec rm -f {}
 echo -e "${GREEN}[+] Local retention enforced.${RESET}"
 
 echo -e "\n${BOLD}${GREEN}==> Backup workflow completed successfully!${RESET}"
+

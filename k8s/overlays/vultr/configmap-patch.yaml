@@ -18,3 +18,4 @@ data:
   STORAGE_PUBLIC_URL: "https://lostlink-uploads.ewr1.vultrobjects.com"
   OUTBOX_POLL_INTERVAL_MS: "3000"
   WORKER_HEALTH_PORT: "3001"
+

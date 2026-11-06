@@ -132,3 +132,4 @@ echo -e "   2. Copy k8s/overlays/vultr/secret.example.yaml to secret.yaml & set 
 echo -e "   3. Update domain in k8s/overlays/vultr/configmap-patch.yaml & ingress-patch.yaml"
 echo -e "   4. Deploy: kubectl apply -k k8s/overlays/vultr"
 echo -e "${BOLD}${GREEN}=====================================================================${RESET}"
+
