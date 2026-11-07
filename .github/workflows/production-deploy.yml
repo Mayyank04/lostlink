@@ -78,9 +78,10 @@ jobs:
       - name: Generate Image Tags
         id: meta
         run: |
-          IMAGE_WEB="ghcr.io/${{ github.repository }}/lostlink-web"
-          IMAGE_WORKER="ghcr.io/${{ github.repository }}/lostlink-worker"
-          IMAGE_CAMPUS="ghcr.io/${{ github.repository }}/lostlink-campus-worker"
+          IMAGE_REPOSITORY="ghcr.io/${GITHUB_REPOSITORY,,}"
+          IMAGE_WEB="${IMAGE_REPOSITORY}/lostlink-web"
+          IMAGE_WORKER="${IMAGE_REPOSITORY}/lostlink-worker"
+          IMAGE_CAMPUS="${IMAGE_REPOSITORY}/lostlink-campus-worker"
           SHA_SHORT=$(git rev-parse --short HEAD)
           echo "web_tag=${IMAGE_WEB}:${SHA_SHORT},${IMAGE_WEB}:latest" >> $GITHUB_OUTPUT
           echo "worker_tag=${IMAGE_WORKER}:${SHA_SHORT},${IMAGE_WORKER}:latest" >> $GITHUB_OUTPUT
@@ -118,6 +119,9 @@ jobs:
     needs: publish-immutable-images
     runs-on: ubuntu-latest
     environment: production
+    concurrency:
+      group: lostlink-production
+      cancel-in-progress: false
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
@@ -137,21 +141,7 @@ jobs:
           KUBECONFIG_DATA: ${{ secrets.KUBECONFIG_DATA }}
           DEPLOY_OVERLAY: ${{ github.event.inputs.overlay || 'k8s/overlays/vultr' }}
         run: |
-          echo "[1/4] Applying overlay: ${DEPLOY_OVERLAY}..."
-          kubectl apply -k "${DEPLOY_OVERLAY}"
-          
-          echo "[2/4] Waiting for Web rollout..."
-          if ! kubectl rollout status deployment/lostlink-web -n lostlink --timeout=180s; then
-            echo "[-] Rollout failed! Initiating rollback..."
-            kubectl rollout undo deployment/lostlink-web -n lostlink
-            exit 1
-          fi
-
-          echo "[3/4] Waiting for Worker rollout..."
-          kubectl rollout status deployment/lostlink-worker -n lostlink --timeout=120s
-
-          echo "[4/4] Automated Smoke Test..."
-          WEB_POD=$(kubectl get pod -n lostlink -l app=lostlink-web -o jsonpath='{.items[0].metadata.name}')
-          kubectl exec -n lostlink "${WEB_POD}" -- curl -sf http://localhost:3000/api/health/ready
-          echo "[+] Production deployment successful and ready!"
+          RELEASE_IMAGE_REPOSITORY="ghcr.io/${GITHUB_REPOSITORY,,}" \
+            RELEASE_IMAGE_TAG="$(git rev-parse --short HEAD)" \
+            bash scripts/deploy-vultr.sh
 

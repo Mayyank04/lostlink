@@ -4,11 +4,84 @@ metadata:
   name: lostlink-db-migrate
   namespace: lostlink
 spec:
-  backoffLimit: 3
+  backoffLimit: 0
+  activeDeadlineSeconds: 600
   template:
     spec:
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: ghcr-auth
+      initContainers:
+        - name: wait-for-postgres
+          $patch: delete
       containers:
         - name: prisma-migrate
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: lostlink-secrets
+                  key: DATABASE_URL
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              node <<'NODE'
+              const { PrismaClient } = require('@prisma/client');
+
+              async function verifyDatabase() {
+                const url = new URL(process.env.DATABASE_URL);
+                if (!['postgres:', 'postgresql:'].includes(url.protocol) ||
+                    !url.hostname.endsWith('.vultrdb.com') ||
+                    url.hostname !== process.env.POSTGRES_HOST ||
+                    (url.port || '5432') !== process.env.POSTGRES_PORT ||
+                    url.searchParams.getAll('sslmode').join() !== 'require' ||
+                    url.searchParams.get('pgbouncer') === 'true') {
+                  throw new Error('Invalid managed database connection configuration');
+                }
+
+                const prisma = new PrismaClient();
+                try {
+                  const [session] = await prisma.$queryRaw`
+                    SELECT ssl FROM pg_stat_ssl WHERE pid = pg_backend_pid()
+                  `;
+                  if (session?.ssl !== true) throw new Error('TLS is not active');
+                } finally {
+                  await prisma.$disconnect();
+                }
+              }
+
+              verifyDatabase().then(() => {
+                console.log('Authenticated to Vultr Managed PostgreSQL over TLS.');
+              }).catch(() => {
+                console.error('Vultr Managed PostgreSQL TLS preflight failed.');
+                process.exitCode = 1;
+              });
+              NODE
+              # Ubuntu's stacked AppArmor labels can deny Prisma's engine shutdown
+              # signal. Release the engine handles if that signal is refused. The
+              # migration pod's process namespace cleans up the remaining engine.
+              shutdown_hook=$(mktemp /tmp/lostlink-prisma-shutdown.XXXXXX)
+              trap 'unlink "$shutdown_hook"' EXIT
+              cat > "$shutdown_hook" <<'NODE'
+              const { ChildProcess } = require('node:child_process');
+              const { basename } = require('node:path');
+              const kill = ChildProcess.prototype.kill;
+
+              ChildProcess.prototype.kill = function (signal) {
+                const delivered = kill.call(this, signal);
+                const shutdown = signal === undefined || signal === 'SIGTERM' || signal === 15;
+                if (delivered || !shutdown || !basename(this.spawnfile || '').startsWith('schema-engine-')) {
+                  return delivered;
+                }
+
+                for (const stream of this.stdio) stream?.destroy();
+                this.unref();
+                return true;
+              };
+              NODE
+              node --require "$shutdown_hook" ./node_modules/prisma/build/index.js migrate deploy
+              node --require "$shutdown_hook" ./node_modules/prisma/build/index.js migrate status
           resources:
             requests:
               cpu: 100m

@@ -20,60 +20,130 @@ spec:
             app: lostlink-backup
             app.kubernetes.io/name: lostlink-backup
         spec:
+          automountServiceAccountToken: false
           restartPolicy: OnFailure
+          imagePullSecrets:
+            - name: ghcr-auth
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
+            runAsGroup: 1001
+            fsGroup: 1001
+          initContainers:
+            - name: prepare-database-credentials
+              image: lostlink-worker:latest
+              imagePullPolicy: IfNotPresent
+              command:
+                - node
+                - -e
+                - |
+                  const { writeFileSync } = require('node:fs');
+
+                  try {
+                    const url = new URL(process.env.DATABASE_URL);
+                    const port = url.port || '5432';
+                    const database = decodeURIComponent(url.pathname.slice(1));
+                    const user = decodeURIComponent(url.username);
+                    const password = decodeURIComponent(url.password);
+                    const identifier = /^[A-Za-z0-9_.-]+$/;
+                    const overrides = ['host', 'hostaddr', 'port', 'user', 'password', 'dbname', 'service', 'options'];
+                    if (!['postgres:', 'postgresql:'].includes(url.protocol) ||
+                        !url.hostname.endsWith('.vultrdb.com') ||
+                        url.hostname !== process.env.POSTGRES_HOST ||
+                        port !== process.env.POSTGRES_PORT ||
+                        url.searchParams.getAll('sslmode').join() !== 'require' ||
+                        overrides.some(key => url.searchParams.has(key)) ||
+                        url.searchParams.getAll('pgbouncer').some(value => !['false', '0'].includes(value)) ||
+                        !identifier.test(database) || !identifier.test(user) ||
+                        !password || /[\r\n\0]/.test(password) || url.hash) {
+                      throw new Error('Invalid connection');
+                    }
+
+                    const service = [
+                      '[lostlink]',
+                      'host=' + url.hostname,
+                      'port=' + port,
+                      'dbname=' + database,
+                      'user=' + user,
+                      'sslmode=require',
+                      'gssencmode=disable',
+                      'connect_timeout=10',
+                      '',
+                    ].join('\n');
+                    const passfile = [url.hostname, port, database, user, password]
+                      .map(value => value.replace(/[\\:]/g, '\\$&')).join(':') + '\n';
+                    process.umask(0o077);
+                    writeFileSync('/db-auth/pg_service.conf', service, { mode: 0o600 });
+                    writeFileSync('/db-auth/.pgpass', passfile, { mode: 0o600 });
+                  } catch {
+                    console.error('Could not prepare Vultr PostgreSQL TLS credentials.');
+                    process.exitCode = 1;
+                  }
+              env:
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: lostlink-secrets
+                      key: DATABASE_URL
+                - name: POSTGRES_HOST
+                  valueFrom:
+                    configMapKeyRef:
+                      name: lostlink-config
+                      key: POSTGRES_HOST
+                - name: POSTGRES_PORT
+                  valueFrom:
+                    configMapKeyRef:
+                      name: lostlink-config
+                      key: POSTGRES_PORT
+              volumeMounts:
+                - name: db-auth
+                  mountPath: /db-auth
           containers:
             - name: postgres-backup
               image: postgres:16-alpine
               command:
                 - /bin/sh
-                - -c
+                - -ec
                 - |
-                  set -euo pipefail
-                  TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-                  BACKUP_FILE="/backups/lostlink_backup_${TIMESTAMP}.sql.gz"
-                  echo "[$(date -u)] Starting automated PostgreSQL backup from ${PGHOST}:${PGPORT} (${POSTGRES_DB})..."
-                  pg_dump -h "$PGHOST" -p "$PGPORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB" | gzip -9 > "$BACKUP_FILE"
-                  BACKUP_SIZE=$(ls -lh "$BACKUP_FILE" | awk '{print $5}')
-                  echo "[$(date -u)] Backup completed successfully: ${BACKUP_FILE} (Size: ${BACKUP_SIZE})"
-                  
-                  # Retention policy: Prune local backups older than 7 days
-                  find /backups -name "lostlink_backup_*.sql.gz" -mtime +7 -exec rm -f {} \;
-                  echo "[$(date -u)] Retention cleanup completed."
+                  umask 077
+                  if [ "$(psql -XAtwqc "SELECT ssl FROM pg_stat_ssl WHERE pid = pg_backend_pid()" 2>/dev/null)" != t ]; then
+                    echo "Could not authenticate to Vultr PostgreSQL over TLS." >&2
+                    exit 1
+                  fi
+
+                  backup_dir=/backups/managed
+                  mkdir -p "$backup_dir"
+                  temporary=$(mktemp "$backup_dir/.lostlink_backup_XXXXXX")
+                  trap 'rm -f "$temporary"' EXIT
+                  trap 'exit 1' HUP INT TERM
+                  pg_dump --no-password --format=custom --lock-wait-timeout=10s --file="$temporary"
+                  pg_restore --list "$temporary" >/dev/null
+                  pg_restore --file=/dev/null "$temporary"
+                  backup_file="$backup_dir/lostlink_backup_$(date -u +%Y%m%d_%H%M%S)_${temporary##*_}.dump"
+                  mv "$temporary" "$backup_file"
+                  echo "Verified PostgreSQL archive saved to $backup_file."
+
+                  find "$backup_dir" -maxdepth 1 -type f -name 'lostlink_backup_*.dump' -mtime +6 -exec rm -f {} +
               env:
-                - name: PGHOST
-                  valueFrom:
-                    configMapKeyRef:
-                      name: lostlink-config
-                      key: POSTGRES_HOST
-                - name: PGPORT
-                  valueFrom:
-                    configMapKeyRef:
-                      name: lostlink-config
-                      key: POSTGRES_PORT
-                - name: PGSSLMODE
-                  valueFrom:
-                    configMapKeyRef:
-                      name: lostlink-config
-                      key: PGSSLMODE
-                - name: POSTGRES_DB
-                  valueFrom:
-                    secretKeyRef:
-                      name: lostlink-secrets
-                      key: POSTGRES_DB
-                - name: POSTGRES_USER
-                  valueFrom:
-                    secretKeyRef:
-                      name: lostlink-secrets
-                      key: POSTGRES_USER
-                - name: PGPASSWORD
-                  valueFrom:
-                    secretKeyRef:
-                      name: lostlink-secrets
-                      key: POSTGRES_PASSWORD
+                - name: PGSERVICE
+                  value: lostlink
+                - name: PGSERVICEFILE
+                  value: /db-auth/pg_service.conf
+                - name: PGPASSFILE
+                  value: /db-auth/.pgpass
+                - name: PGOPTIONS
+                  value: "-c default_transaction_read_only=on"
               volumeMounts:
+                - name: db-auth
+                  mountPath: /db-auth
+                  readOnly: true
                 - name: backup-storage
                   mountPath: /backups
           volumes:
+            - name: db-auth
+              emptyDir:
+                medium: Memory
+                sizeLimit: 1Mi
             - name: backup-storage
               persistentVolumeClaim:
-                claimName: postgres-storage-postgres-0
+                claimName: lostlink-managed-postgres-backups

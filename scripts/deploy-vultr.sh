@@ -1,131 +1,155 @@
 #!/usr/bin/env bash
-# ==============================================================================
-# LOSTLINK 2.0 — VULTR PRODUCTION KUBERNETES DEPLOYMENT SCRIPT
-# Executes zero-downtime rolling update on Vultr K3s
-# ==============================================================================
+# Deploy the Vultr K3s overlay and require a successful database migration
+# before rolling out the web and worker workloads.
 set -euo pipefail
+umask 077
 
-BOLD="\033[1m"
-GREEN="\033[32m"
-BLUE="\033[34m"
-YELLOW="\033[33m"
-RED="\033[31m"
-RESET="\033[0m"
+namespace=lostlink
+overlay_dir="${DEPLOY_OVERLAY:-k8s/overlays/vultr}"
+migration_job=lostlink-db-migrate
+migration_selector='app.kubernetes.io/component=db-migration'
+prerequisite_selector='app.kubernetes.io/component notin (db-migration,web,worker,ingress,autoscaler)'
+release_selector='app.kubernetes.io/component in (web,worker,ingress,autoscaler)'
 
-NAMESPACE="lostlink"
-OVERLAY_DIR="k8s/overlays/vultr"
-APP_DOMAIN="lostlink-demo.duckdns.org"
-
-echo -e "${BOLD}${BLUE}=====================================================================${RESET}"
-echo -e "${BOLD}${BLUE}   LostLink 2.0 — Vultr K3s Production Rollout                      ${RESET}"
-echo -e "${BOLD}${BLUE}   Target Domain: https://${APP_DOMAIN}                             ${RESET}"
-echo -e "${BOLD}${BLUE}=====================================================================${RESET}"
-
-# 1. Preflight checks
-echo -e "\n${BLUE}[1/6] Checking Kubernetes cluster connectivity...${RESET}"
-if ! kubectl cluster-info &>/dev/null; then
-  echo -e "${RED}[-] Error: Cannot connect to Kubernetes cluster via kubectl.${RESET}" >&2
+fail() {
+  printf '%s\n' "$*" >&2
   exit 1
-fi
-echo -e "${GREEN}[+] Cluster reachable. Node status:${RESET}"
-kubectl get nodes
+}
 
-# 2. Check secret.yaml existence & safety
-echo -e "\n${BLUE}[2/6] Verifying Kubernetes production credentials...${RESET}"
-if [[ ! -f "${OVERLAY_DIR}/secret.yaml" ]]; then
-  if kubectl get secret lostlink-secrets -n "${NAMESPACE}" &>/dev/null; then
-    echo -e "${GREEN}[+] Found existing 'lostlink-secrets' in namespace '${NAMESPACE}'. Preserving current cluster secrets.${RESET}"
-  else
-    echo -e "${YELLOW}[!] Warning: ${OVERLAY_DIR}/secret.yaml not found and no existing secret in cluster.${RESET}"
-    echo -e "${YELLOW}    Copying secret.example.yaml to secret.yaml. PLEASE UPDATE WITH REAL SECRETS!${RESET}"
-    cp "${OVERLAY_DIR}/secret.example.yaml" "${OVERLAY_DIR}/secret.yaml"
-    kubectl apply -f "${OVERLAY_DIR}/secret.yaml"
+[[ -f "$overlay_dir/kustomization.yaml" ]] || fail "Kustomize overlay not found at $overlay_dir."
+kubectl cluster-info >/dev/null
+
+release_dir=$(mktemp -d "$(dirname "$overlay_dir")/.lostlink-release.XXXXXX")
+trap 'rm -rf -- "$release_dir"' EXIT
+
+render_dir=$overlay_dir
+if [[ -n "${RELEASE_IMAGE_REPOSITORY:-}" || -n "${RELEASE_IMAGE_TAG:-}" ]]; then
+  overlay_name=$(basename "$overlay_dir")
+  [[ "$overlay_name" =~ ^[a-zA-Z0-9._-]+$ ]] || fail 'Invalid Kustomize overlay directory name.'
+  [[ "${RELEASE_IMAGE_REPOSITORY:-}" =~ ^[a-z0-9._/-]+$ && "${RELEASE_IMAGE_TAG:-}" =~ ^[a-zA-Z0-9_][a-zA-Z0-9._-]*$ ]] ||
+    fail "Set both RELEASE_IMAGE_REPOSITORY and RELEASE_IMAGE_TAG to valid image values."
+  cat > "$release_dir/kustomization.yaml" <<YAML
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - "../$overlay_name"
+images:
+  - name: lostlink-web
+    newName: "${RELEASE_IMAGE_REPOSITORY}/lostlink-web"
+    newTag: "${RELEASE_IMAGE_TAG}"
+  - name: lostlink-worker
+    newName: "${RELEASE_IMAGE_REPOSITORY}/lostlink-worker"
+    newTag: "${RELEASE_IMAGE_TAG}"
+  - name: ghcr.io/mayyank04/lostlink-web
+    newName: "${RELEASE_IMAGE_REPOSITORY}/lostlink-web"
+    newTag: "${RELEASE_IMAGE_TAG}"
+  - name: ghcr.io/mayyank04/lostlink-worker
+    newName: "${RELEASE_IMAGE_REPOSITORY}/lostlink-worker"
+    newTag: "${RELEASE_IMAGE_TAG}"
+YAML
+  render_dir=$release_dir
+fi
+
+manifest="$release_dir/manifest.yaml"
+kubectl kustomize "$render_dir" > "$manifest"
+rendered_job=$(kubectl -n "$namespace" create --dry-run=client -f "$manifest" \
+  --selector "$migration_selector" -o name)
+[[ "$rendered_job" == "job.batch/$migration_job" ]] ||
+  fail "The selected overlay must render exactly one $migration_job Job."
+
+job_state=$(kubectl -n "$namespace" get job "$migration_job" --ignore-not-found \
+  -o 'jsonpath={.metadata.uid}{"|"}{.status.conditions[?(@.type=="Complete")].status}{"|"}{.status.conditions[?(@.type=="Failed")].status}')
+IFS='|' read -r job_uid job_complete job_failed <<< "$job_state"
+if [[ -n "$job_uid" && "$job_complete" != True && "$job_failed" != True ]]; then
+  fail "The existing migration Job has not finished. Inspect it before starting another release."
+fi
+
+echo 'Applying migration prerequisites.'
+cluster_secret=$(kubectl -n "$namespace" get secret lostlink-secrets --ignore-not-found -o name)
+if [[ -z "$cluster_secret" && ! -f "$overlay_dir/secret.yaml" ]]; then
+  fail "Provision lostlink-secrets in $namespace before deploying."
+fi
+kubectl -n "$namespace" apply -f "$manifest" --selector "$prerequisite_selector"
+if [[ -z "$cluster_secret" ]]; then
+  kubectl -n "$namespace" create -f "$overlay_dir/secret.yaml"
+fi
+
+if [[ -n "$job_uid" ]]; then
+  # Delete only the terminal Job inspected above, even if another release races this one.
+  printf '{"apiVersion":"v1","kind":"DeleteOptions","preconditions":{"uid":"%s"},"propagationPolicy":"Foreground"}\n' "$job_uid" |
+    kubectl delete --raw "/apis/batch/v1/namespaces/$namespace/jobs/$migration_job" -f - >/dev/null
+  kubectl -n "$namespace" wait --for=delete "job/$migration_job" --timeout=60s
+fi
+
+echo 'Running database migrations.'
+kubectl -n "$namespace" create -f "$manifest" --selector "$migration_selector"
+if ! kubectl -n "$namespace" wait --for=condition=complete "job/$migration_job" --timeout=300s; then
+  kubectl -n "$namespace" get job "$migration_job" || true
+  kubectl -n "$namespace" get pods -l "job-name=$migration_job" || true
+  fail "Migration did not complete. Check the migration container logs before retrying."
+fi
+
+template_checksum() {
+  kubectl -n "$namespace" get "deployment/$1" --ignore-not-found -o 'jsonpath={.spec.template}' | cksum
+}
+
+wait_for_rollout() {
+  local name=$1
+  local timeout=$2
+  local prior_template=$3
+  if [[ "$(template_checksum "$name")" == "$prior_template" ]]; then
+    # A config-only release still needs new pods to pick up environment variables.
+    kubectl -n "$namespace" rollout restart "deployment/$name"
   fi
-else
-  echo -e "${GREEN}[+] Applying secrets from ${OVERLAY_DIR}/secret.yaml...${RESET}"
-  kubectl apply -f "${OVERLAY_DIR}/secret.yaml"
-fi
-
-# 3. Handle Kubernetes Job Immutability
-echo -e "\n${BLUE}[3/6] Preparing database migration job (handling Job immutability)...${RESET}"
-if kubectl get job lostlink-db-migrate -n "${NAMESPACE}" &>/dev/null; then
-  echo -e "${YELLOW}[*] Removing previous migration Job to prevent immutability conflict...${RESET}"
-  kubectl delete job lostlink-db-migrate -n "${NAMESPACE}" --wait=true
-  echo -e "${GREEN}[+] Prior migration Job pruned cleanly.${RESET}"
-fi
-
-# 4. Apply Vultr Kustomize Overlay
-echo -e "\n${BLUE}[4/6] Applying Vultr Kustomize overlay manifests...${RESET}"
-kubectl apply -k "${OVERLAY_DIR}"
-
-# 5. Wait for database migration job to succeed before updating dependent services
-echo -e "\n${BLUE}[5/6] Waiting for database schema migrations to complete successfully...${RESET}"
-if kubectl get job lostlink-db-migrate -n "${NAMESPACE}" &>/dev/null; then
-  if ! kubectl wait --for=condition=complete job/lostlink-db-migrate -n "${NAMESPACE}" --timeout=120s; then
-    echo -e "${RED}[-] Migration job timed out or failed! Extracting diagnostics:${RESET}"
-    echo -e "${YELLOW}--- Migration Pod Status ---${RESET}"
-    kubectl get pods -n "${NAMESPACE}" -l app=lostlink-db-migrate -o wide || true
-    echo -e "${YELLOW}--- Init Container (wait-for-postgres) Logs ---${RESET}"
-    kubectl logs -n "${NAMESPACE}" job/lostlink-db-migrate -c wait-for-postgres --tail=50 || true
-    echo -e "${YELLOW}--- Prisma Migration Container Logs ---${RESET}"
-    kubectl logs -n "${NAMESPACE}" job/lostlink-db-migrate -c prisma-migrate --tail=50 || true
-    exit 1
+  if ! kubectl -n "$namespace" rollout status "deployment/$name" --timeout="$timeout"; then
+    kubectl -n "$namespace" get pods -l "app=$name" || true
+    if kubectl -n "$namespace" rollout undo "deployment/$name"; then
+      fail "Rollout failed for $name. Requested rollback to its previous pod template."
+    fi
+    fail "Rollout failed for $name. Rollback to its previous pod template also failed."
   fi
-  echo -e "${GREEN}[+] Database schema migrations completed successfully!${RESET}"
-fi
+}
 
-# 6. Monitor zero-downtime rolling update of Web & Worker deployments
-echo -e "\n${BLUE}[6/6] Monitoring zero-downtime rolling update...${RESET}"
-# Trigger a rolling restart to ensure pods pick up any updated migration schema / config
-kubectl rollout restart deployment/lostlink-web deployment/lostlink-worker -n "${NAMESPACE}"
+echo 'Rolling out web and worker.'
+web_template=$(template_checksum lostlink-web)
+worker_template=$(template_checksum lostlink-worker)
+kubectl -n "$namespace" apply -f "$manifest" --selector "$release_selector"
+wait_for_rollout lostlink-web 180s "$web_template"
+wait_for_rollout lostlink-worker 120s "$worker_template"
 
-if ! kubectl rollout status deployment/lostlink-web -n "${NAMESPACE}" --timeout=180s; then
-  echo -e "${RED}[-] Web deployment rollout failed! Pod diagnostics:${RESET}"
-  kubectl get pods -n "${NAMESPACE}" -l app=lostlink-web
-  kubectl describe pods -n "${NAMESPACE}" -l app=lostlink-web | grep -A 10 "Events:" || true
-  kubectl logs -n "${NAMESPACE}" -l app=lostlink-web -c wait-for-db --tail=30 || true
-  kubectl logs -n "${NAMESPACE}" -l app=lostlink-web -c web --tail=50 || true
-  echo -e "${YELLOW}[*] Rolling back web deployment...${RESET}"
-  kubectl rollout undo deployment/lostlink-web -n "${NAMESPACE}"
-  exit 1
-fi
-echo -e "${GREEN}[+] Web deployment is Ready!${RESET}"
+echo 'Checking web readiness and worker database access.'
+kubectl -n "$namespace" exec deployment/lostlink-web -c web -- \
+  curl --fail --silent --show-error --max-time 10 --output /dev/null http://localhost:3000/api/health/ready
+kubectl -n "$namespace" exec deployment/lostlink-worker -c worker -- \
+  curl --fail --silent --show-error --max-time 10 --output /dev/null http://localhost:3001/healthz
+kubectl -n "$namespace" exec deployment/lostlink-worker -c worker -- node -e '
+const { PrismaClient } = require("@prisma/client");
+const prisma = new PrismaClient();
+const timeout = setTimeout(() => {
+  console.error("Worker outbox database query timed out.");
+  process.exit(1);
+}, 10000);
+(async () => {
+  try {
+    await prisma.outboxEvent.findFirst({ select: { id: true } });
+  } finally {
+    await prisma.$disconnect();
+  }
+})()
+  .catch(() => {
+    console.error("Worker outbox database query failed.");
+    process.exitCode = 1;
+  })
+  .finally(() => clearTimeout(timeout));
+'
 
-if ! kubectl rollout status deployment/lostlink-worker -n "${NAMESPACE}" --timeout=120s; then
-  echo -e "${RED}[-] Worker deployment rollout failed! Pod diagnostics:${RESET}"
-  kubectl get pods -n "${NAMESPACE}" -l app=lostlink-worker
-  kubectl logs -n "${NAMESPACE}" -l app=lostlink-worker -c wait-for-db --tail=30 || true
-  kubectl logs -n "${NAMESPACE}" -l app=lostlink-worker -c worker --tail=50 || true
-  kubectl rollout undo deployment/lostlink-worker -n "${NAMESPACE}"
-  exit 1
-fi
-echo -e "${GREEN}[+] Worker deployment is Ready!${RESET}"
-
-# Automated Health Checks & Smoke Verification
-echo -e "\n${BLUE}[*] Running health endpoint verification...${RESET}"
-WEB_POD=$(kubectl get pod -n "${NAMESPACE}" -l app=lostlink-web -o jsonpath='{.items[0].metadata.name}')
-
-echo -e "Executing in-pod readiness check via ${WEB_POD}..."
-SMOKE_RES=$(kubectl exec -n "${NAMESPACE}" "${WEB_POD}" -c web -- curl -s http://localhost:3000/api/health/ready || echo '{"status":"failed"}')
-
-if echo "${SMOKE_RES}" | grep -q '"status":"ready"'; then
-  echo -e "${GREEN}[+] In-cluster readiness probe passed! Response:${RESET}"
-  echo "${SMOKE_RES}" | jq . 2>/dev/null || echo "${SMOKE_RES}"
+ingress_host=$(kubectl -n "$namespace" get ingress lostlink-ingress -o 'jsonpath={.spec.rules[0].host}')
+if [[ -n "$ingress_host" ]] &&
+  [[ "$(curl --silent --show-error --max-time 15 --output /dev/null --write-out '%{http_code}' \
+    "https://$ingress_host/api/health/ready")" == 200 ]]; then
+  echo "Public HTTPS readiness passed for $ingress_host."
 else
-  echo -e "${RED}[-] In-cluster readiness test failed. Response: ${SMOKE_RES}${RESET}" >&2
-  exit 1
+  echo 'Public HTTPS readiness could not be verified.' >&2
 fi
 
-echo -e "\nExecuting public HTTPS ingress readiness check (https://${APP_DOMAIN}/api/health/ready)..."
-PUBLIC_RES=$(curl -ks "https://${APP_DOMAIN}/api/health/ready" || echo '{"status":"failed"}')
-if echo "${PUBLIC_RES}" | grep -q '"status":"ready"'; then
-  echo -e "${GREEN}[+] Public HTTPS health probe passed! Response:${RESET}"
-  echo "${PUBLIC_RES}" | jq . 2>/dev/null || echo "${PUBLIC_RES}"
-else
-  echo -e "${YELLOW}[!] Note: Public HTTPS check returned non-ready (${PUBLIC_RES}), verify external DNS/cert propagation.${RESET}"
-fi
-
-echo -e "\n${BOLD}${GREEN}=====================================================================${RESET}"
-echo -e "${BOLD}${GREEN}   [SUCCESS] LostLink 2.0 deployed and healthy on Vultr K3s!         ${RESET}"
-echo -e "${BOLD}${GREEN}=====================================================================${RESET}"
-kubectl get pods,services,ingress,jobs -n "${NAMESPACE}"
+echo 'Database migration and in-cluster web and worker checks passed.'

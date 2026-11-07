@@ -128,8 +128,8 @@ echo -e "\n${BOLD}${GREEN}======================================================
 echo -e "${BOLD}${GREEN}   [SUCCESS] Vultr VPS Node is fully initialized!                    ${RESET}"
 echo -e "   Next steps:"
 echo -e "   1. Point DNS A-record for '${DOMAIN}' to ${PUBLIC_IP}"
-echo -e "   2. Copy k8s/overlays/vultr/secret.example.yaml to secret.yaml & set strong keys"
+echo -e "   2. Copy k8s/overlays/vultr/secret.example.yaml to k8s/overlays/vultr/secret.yaml and set credentials"
 echo -e "   3. Update domain in k8s/overlays/vultr/configmap-patch.yaml & ingress-patch.yaml"
-echo -e "   4. Deploy: kubectl apply -k k8s/overlays/vultr"
+echo -e "   4. Deploy from the repository root: bash scripts/deploy-vultr.sh"
 echo -e "${BOLD}${GREEN}=====================================================================${RESET}"
 

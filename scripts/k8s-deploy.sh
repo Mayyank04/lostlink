@@ -11,6 +11,11 @@ RESET="\033[0m"
 
 NAMESPACE="lostlink"
 
+if [[ -f k8s/base/secret.yaml ]]; then
+  kubectl apply -f k8s/base/namespace.yaml
+  kubectl -n "${NAMESPACE}" apply -f k8s/base/secret.yaml
+fi
+
 echo -e "${BOLD}${BLUE}==> Applying Kustomize overlays to namespace '${NAMESPACE}'...${RESET}"
 kubectl apply -k k8s/overlays/local
 

@@ -6,6 +6,7 @@ namespace: lostlink
 resources:
   - ../../base
   - backup-cronjob.yaml
+  - backup-storage.yaml
   - traefik-middleware.yaml
 
 patches:
@@ -16,9 +17,11 @@ patches:
   - path: hpa-patch.yaml
   - path: migration-job-patch.yaml
 
-# Pin immutable container image tags for production workloads (avoid 'latest')
+# Default to the verified VPS images. The release script overrides them for CI releases.
 images:
   - name: lostlink-web
-    newTag: v2.0.0
+    newName: ghcr.io/mayyank04/lostlink-web
+    digest: sha256:c7a4e2ecf8b45acd715a46516a8fed3ac3d640b0d93bb3a6d977e7fccbdd2474
   - name: lostlink-worker
-    newTag: v2.0.0
+    newName: ghcr.io/mayyank04/lostlink-worker
+    digest: sha256:b074a96cea352a2ea6c3edcb8eee430508a92590521fe6eb6c9c61dabf206752
