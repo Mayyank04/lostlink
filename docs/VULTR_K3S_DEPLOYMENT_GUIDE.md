@@ -145,7 +145,7 @@ stringData:
   POSTGRES_USER: "lostlink_admin"
   POSTGRES_PASSWORD: "<STRONG_DB_PASSWORD>"
   POSTGRES_DB: "lostlink"
-  DATABASE_URL: "postgresql://lostlink_admin:<STRONG_DB_PASSWORD>@postgres:5432/lostlink?schema=public"
+  DATABASE_URL: "postgresql://lostlink_admin:<URL_ENCODED_DB_PASSWORD>@<VULTR_POSTGRES_HOST>:25257/lostlink?sslmode=require&schema=public"
   AUTH_SECRET: "<32_CHAR_AUTH_SECRET>"
   SESSION_SECRET: "<32_CHAR_AUTH_SECRET>"
   NEXTAUTH_SECRET: "<32_CHAR_AUTH_SECRET>"
@@ -165,6 +165,9 @@ Edit `k8s/overlays/vultr/configmap-patch.yaml`:
   NEXTAUTH_URL: "https://lostlink.yourdomain.com"
   NEXT_PUBLIC_APP_URL: "https://lostlink.yourdomain.com"
   STORAGE_PUBLIC_URL: "https://<YOUR_BUCKET>.<REGION>.vultrobjects.com"
+  POSTGRES_HOST: "<VULTR_POSTGRES_HOST>"
+  POSTGRES_PORT: "25257"
+  PGSSLMODE: "require"
 ```
 
 Edit `k8s/overlays/vultr/ingress-patch.yaml`:
@@ -202,18 +205,31 @@ kubectl get pods,services,ingress,certificates -n lostlink
 Expected output:
 ```
 NAME                                   READY   STATUS      RESTARTS   AGE
-pod/postgres-0                         1/1     Running     0          2m
 pod/lostlink-db-migrate-xxxxx          0/1     Completed   0          90s
 pod/lostlink-web-xxxxxxxxxx-xxxxx      1/1     Running     0          60s
 pod/lostlink-worker-xxxxxxxxxx-xxxxx   1/1     Running     0          60s
 
 NAME                   TYPE        CLUSTER-IP      PORT(S)    AGE
-service/postgres       ClusterIP   10.43.x.x       5432/TCP   2m
 service/lostlink-web   ClusterIP   10.43.x.x       3000/TCP   2m
 
 NAME                                        CLASS     HOSTS                    ADDRESS         PORTS     AGE
 ingress.networking.k8s.io/lostlink-ingress  traefik   lostlink.yourdomain.com  <YOUR_VPS_IP>   80, 443   2m
 ```
+
+### Install or update the GitHub Actions deploy entry point
+
+On the VPS, install the reviewed scripts as root from the repository checkout.
+
+```bash
+install -o root -g root -m 0755 infrastructure/public-cloud/lostlink-ci-ssh /usr/local/bin/lostlink-ci-ssh
+install -o root -g root -m 0755 infrastructure/public-cloud/lostlink-ci-release /usr/local/sbin/lostlink-ci-release
+```
+
+Keep `/opt/lostlink`, its deployment script, and its Kubernetes manifests root-owned and nonwritable by `lostlink-ci`. The locked `lostlink-ci` account uses `restrict,command="/usr/local/bin/lostlink-ci-ssh"` on its authorized key. Its sudo rule permits only `/usr/local/sbin/lostlink-ci-release` with no arguments. The launcher accepts `deploy <full commit SHA>` over SSH and passes the validated SHA to the server-side release script.
+
+Keep the local K3s admin kubeconfig at mode `0600` and block public access to TCP `6443`. GitHub's `production` environment is restricted to `main` and holds `VULTR_DEPLOY_SSH_KEY` and `VULTR_DEPLOY_KNOWN_HOSTS`. Store credential values outside Git. Run the production workflow from `main` with the full release SHA.
+
+The VPS checks the migration Job, deployed image revisions, and the worker heartbeat and database access. A retry for the same release waits for both rollouts and repeats verification without restarting either workload.
 
 ---
 

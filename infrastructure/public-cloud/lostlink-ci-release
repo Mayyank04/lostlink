@@ -1,0 +1,132 @@
+#!/bin/bash
+set -euo pipefail
+umask 077
+
+[[ $# == 0 ]]
+IFS= read -r release_sha
+[[ "$release_sha" =~ ^[a-f0-9]{40}$ ]]
+
+export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+export DEPLOY_OVERLAY=k8s/overlays/vultr
+export RELEASE_IMAGE_REPOSITORY=ghcr.io/mayyank04/lostlink
+export RELEASE_IMAGE_TAG="$release_sha"
+readonly release_sha
+
+exec 9>/run/lock/lostlink-ci-release.lock
+if ! /usr/bin/flock -n 9; then
+  printf '%s\n' 'A LostLink release is already running.' >&2
+  exit 75
+fi
+
+cd /opt/lostlink
+worker_image="$RELEASE_IMAGE_REPOSITORY/lostlink-worker:$release_sha"
+web_image="$RELEASE_IMAGE_REPOSITORY/lostlink-web:$release_sha"
+
+migration_complete() {
+  kubectl -n lostlink get job lostlink-db-migrate --ignore-not-found -o json |
+    jq -e --arg image "$worker_image" '
+      .status.succeeded == 1 and
+      any(.status.conditions[]; .type == "Complete" and .status == "True") and
+      any(.spec.template.spec.containers[]; .name == "prisma-migrate" and .image == $image)
+    ' > /dev/null
+}
+
+release_images_applied() {
+  kubectl -n lostlink get deploy lostlink-web lostlink-worker -o json |
+    jq -e --arg web "$web_image" --arg worker "$worker_image" '
+      .items | length == 2 and
+      all(.[]; (.metadata.name == "lostlink-web" and
+                any(.spec.template.spec.containers[]; .name == "web" and .image == $web)) or
+               (.metadata.name == "lostlink-worker" and
+                any(.spec.template.spec.containers[]; .name == "worker" and .image == $worker)))
+    ' > /dev/null
+}
+
+if migration_complete && release_images_applied; then
+  printf 'Verifying the already deployed LostLink application commit %s\n' "$release_sha"
+  kubectl -n lostlink rollout status deployment/lostlink-web --timeout=180s
+  kubectl -n lostlink rollout status deployment/lostlink-worker --timeout=120s
+else
+  printf 'Deploying LostLink application commit %s\n' "$release_sha"
+  /bin/bash /opt/lostlink/scripts/deploy-vultr.sh
+fi
+
+migration_complete
+printf '%s\n' 'Prisma migration Job completed 1/1 for this release.'
+kubectl -n lostlink logs job/lostlink-db-migrate -c prisma-migrate |
+  awk '/^Authenticated to Vultr Managed PostgreSQL over TLS\.$|^No pending migrations to apply\.$|^Database schema is up to date!$|^All migrations have been successfully applied\.$/ {print}'
+
+verify_workload() {
+  local workload=$1 image=$2 image_ids image_id revision
+  image_ids=$(kubectl -n lostlink get pod -l "app=lostlink-$workload" -o json |
+    jq -er --arg image "$image" --arg workload "$workload" '
+      [.items[] | select(.metadata.deletionTimestamp == null) |
+       select(any(.spec.containers[]; .name == $workload and .image == $image)) |
+       .status.containerStatuses[] | select(.name == $workload and .ready) | .imageID] |
+      unique | if length > 0 then .[] else error("No ready release pod") end')
+  while IFS= read -r image_id; do
+    revision=$(k3s crictl inspecti "$image_id" | jq -er '.info.imageSpec.config.Labels["org.opencontainers.image.revision"]')
+    [[ "$revision" == "$release_sha" ]]
+    printf 'Verified ready %s image for %s (%s).\n' "$workload" "$revision" "${image_id##*@}"
+  done <<< "$image_ids"
+}
+
+verify_workload web "$web_image"
+verify_workload worker "$worker_image"
+
+worker_health() {
+  kubectl -n lostlink exec deployment/lostlink-worker -c worker -- \
+    curl --fail --silent --show-error --max-time 5 --retry 4 --retry-delay 2 \
+      --retry-connrefused --retry-max-time 15 http://localhost:3001/healthz
+}
+
+before=$(worker_health)
+sleep 4
+worker_health | jq -e --argjson before "$before" '
+  .status == "healthy" and .lastHeartbeat > $before.lastHeartbeat and .jobsFailed == 0
+' > /dev/null
+
+kubectl -n lostlink exec -i deployment/lostlink-worker -c worker -- node - <<'NODE'
+const { createHash } = require('node:crypto');
+const { readdirSync, readFileSync } = require('node:fs');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+const timer = setTimeout(() => process.exit(2), 15000);
+
+async function verifyDatabase() {
+  const [connection] = await prisma.$queryRaw`
+    SELECT ssl FROM pg_stat_ssl WHERE pid = pg_backend_pid()
+  `;
+  if (!connection?.ssl) throw new Error('TLS check failed');
+
+  const expected = new Map(readdirSync('prisma/migrations', { withFileTypes: true })
+    .filter(entry => entry.isDirectory())
+    .map(({ name }) => [name, createHash('sha256')
+      .update(readFileSync(`prisma/migrations/${name}/migration.sql`)).digest('hex')]));
+  const history = await prisma.$queryRaw`
+    SELECT migration_name, checksum, finished_at IS NOT NULL AS finished
+    FROM "_prisma_migrations" WHERE rolled_back_at IS NULL
+  `;
+  for (const row of history) {
+    if (!row.finished || expected.get(row.migration_name) !== row.checksum) {
+      throw new Error('Migration history check failed');
+    }
+    expected.delete(row.migration_name);
+  }
+  if (expected.size !== 0) throw new Error('Migration history is incomplete');
+
+  await prisma.outboxEvent.findFirst({ select: { id: true } });
+  console.log('Verified migration checksums and worker outbox access over TLS.');
+}
+
+verifyDatabase().catch(() => {
+  console.error('Worker TLS, migration history, or outbox verification failed.');
+  process.exitCode = 1;
+}).finally(async () => {
+  await prisma.$disconnect();
+  clearTimeout(timer);
+});
+NODE
+
+printf '%s\n' 'Worker heartbeat advanced with zero failed jobs.'
