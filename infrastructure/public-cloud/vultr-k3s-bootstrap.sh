@@ -72,7 +72,7 @@ echo -e "\n${BLUE}[3/5] Installing K3s (Lightweight Kubernetes with Traefik)...$
 curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="server \
   --tls-san ${PUBLIC_IP} \
   --tls-san ${DOMAIN} \
-  --write-kubeconfig-mode 644" sh -
+  --write-kubeconfig-mode 600" sh -
 
 echo "[*] Waiting for K3s node to be Ready..."
 until kubectl get node &>/dev/null; do

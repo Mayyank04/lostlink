@@ -1,49 +1,101 @@
 name: LostLink Production Deployment Pipeline
+run-name: LostLink production release ${{ inputs.release_ref || github.sha }}
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'
   workflow_dispatch:
     inputs:
       confirm_production:
         description: 'Type "DEPLOY" to confirm production release rollout'
         required: true
         default: 'NO'
-      overlay:
-        description: 'Kustomize overlay to deploy (e.g. k8s/overlays/vultr or k8s/overlays/production)'
+      release_ref:
+        description: 'Full 40-character commit SHA on main to release'
         required: true
-        default: 'k8s/overlays/vultr'
+        type: string
 
 permissions:
   contents: read
-  packages: write
+
+concurrency:
+  group: lostlink-production
+  cancel-in-progress: false
 
 jobs:
   preflight-audit:
     name: Production Preflight Quality & Security Gate
     runs-on: ubuntu-latest
+    outputs:
+      release_sha: ${{ steps.release.outputs.sha }}
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: lostlink_ci
+          POSTGRES_USER: lostlink_ci
+          POSTGRES_PASSWORD: lostlink_ci
+        ports:
+          - 5432/tcp
+        options: >-
+          --health-cmd "pg_isready -U lostlink_ci -d lostlink_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      NODE_ENV: test
     steps:
-      - name: Validate Confirmation
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.confirm_production != 'DEPLOY'
-        run: |
-          echo "[-] Aborting: Must type 'DEPLOY' in input prompt to trigger production rollout." >&2
-          exit 1
-
-      - name: Checkout Source Code
+      - name: Check out the release controller ref
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate confirmation and select the exact release commit
+        id: release
+        env:
+          CONFIRM_PRODUCTION: ${{ inputs.confirm_production }}
+          RELEASE_REF: ${{ inputs.release_ref }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" != refs/heads/main || "$CONFIRM_PRODUCTION" != DEPLOY ]]; then
+            echo "Run this workflow from main with DEPLOY and the full release SHA." >&2
+            exit 1
+          fi
+          release_sha="$RELEASE_REF"
+          if [[ ! "$release_sha" =~ ^[a-f0-9]{40}$ ]] ||
+             [[ "$(git cat-file -t "$release_sha" 2>/dev/null)" != commit ]] ||
+             ! git merge-base --is-ancestor "$release_sha" refs/remotes/origin/main; then
+            echo "The release SHA must identify a commit on main." >&2
+            exit 1
+          fi
+          git checkout --detach "$release_sha"
+          printf 'sha=%s\n' "$release_sha" >> "$GITHUB_OUTPUT"
+          printf 'Testing release commit %s\n' "$release_sha"
+
+      - name: Configure the isolated test database
+        env:
+          TEST_POSTGRES_PORT: ${{ job.services.postgres.ports[5432] }}
+        run: |
+          set -euo pipefail
+          [[ "$TEST_POSTGRES_PORT" =~ ^[0-9]+$ ]]
+          printf 'DATABASE_URL=postgresql://lostlink_ci:lostlink_ci@127.0.0.1:%s/lostlink_ci?schema=public\n' \
+            "$TEST_POSTGRES_PORT" >> "$GITHUB_ENV"
 
       - name: Set up Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
+          cache: npm
 
       - name: Install Dependencies
         run: npm ci
 
       - name: Generate Prisma Client
         run: npx prisma generate
+
+      - name: Migrate and seed isolated PostgreSQL
+        run: |
+          npx prisma migrate deploy
+          npm run db:seed
 
       - name: Typecheck
         run: npm run typecheck
@@ -55,15 +107,21 @@ jobs:
         run: |
           kubectl kustomize k8s/overlays/production > /dev/null
           kubectl kustomize k8s/overlays/vultr > /dev/null
-          echo "[+] All production & Vultr Kustomize manifests are valid."
+          echo "Production and Vultr Kustomize manifests are valid."
 
   publish-immutable-images:
     name: Build & Push Immutable linux/amd64 Images
     needs: preflight-audit
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
-      - name: Checkout Source Code
+      - name: Check out the tested release commit
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight-audit.outputs.release_sha }}
+          persist-credentials: false
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -75,17 +133,19 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Generate Image Tags
+      - name: Generate exact commit image tags
         id: meta
+        env:
+          RELEASE_SHA: ${{ needs.preflight-audit.outputs.release_sha }}
         run: |
-          IMAGE_REPOSITORY="ghcr.io/${GITHUB_REPOSITORY,,}"
-          IMAGE_WEB="${IMAGE_REPOSITORY}/lostlink-web"
-          IMAGE_WORKER="${IMAGE_REPOSITORY}/lostlink-worker"
-          IMAGE_CAMPUS="${IMAGE_REPOSITORY}/lostlink-campus-worker"
-          SHA_SHORT=$(git rev-parse --short HEAD)
-          echo "web_tag=${IMAGE_WEB}:${SHA_SHORT},${IMAGE_WEB}:latest" >> $GITHUB_OUTPUT
-          echo "worker_tag=${IMAGE_WORKER}:${SHA_SHORT},${IMAGE_WORKER}:latest" >> $GITHUB_OUTPUT
-          echo "campus_tag=${IMAGE_CAMPUS}:${SHA_SHORT},${IMAGE_CAMPUS}:latest" >> $GITHUB_OUTPUT
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$RELEASE_SHA" ]]
+          repository="ghcr.io/${GITHUB_REPOSITORY,,}"
+          {
+            printf 'web_tag=%s/lostlink-web:%s\n' "$repository" "$RELEASE_SHA"
+            printf 'worker_tag=%s/lostlink-worker:%s\n' "$repository" "$RELEASE_SHA"
+            printf 'campus_tag=%s/lostlink-campus-worker:%s\n' "$repository" "$RELEASE_SHA"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Build & Push Production Web Image (linux/amd64)
         uses: docker/build-push-action@v5
@@ -95,6 +155,7 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.web_tag }}
+          labels: org.opencontainers.image.revision=${{ needs.preflight-audit.outputs.release_sha }}
 
       - name: Build & Push Production Cloud Worker Image (linux/amd64)
         uses: docker/build-push-action@v5
@@ -104,6 +165,7 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.worker_tag }}
+          labels: org.opencontainers.image.revision=${{ needs.preflight-audit.outputs.release_sha }}
 
       - name: Build & Push Production Campus Worker Image (linux/amd64)
         uses: docker/build-push-action@v5
@@ -113,35 +175,53 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.campus_tag }}
+          labels: org.opencontainers.image.revision=${{ needs.preflight-audit.outputs.release_sha }}
 
   deploy-production:
     name: Zero-Downtime Rollout to Kubernetes VPS
-    needs: publish-immutable-images
+    needs: [preflight-audit, publish-immutable-images]
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     environment: production
-    concurrency:
-      group: lostlink-production
-      cancel-in-progress: false
+    permissions: {}
     steps:
-      - name: Checkout Source Code
-        uses: actions/checkout@v4
-
-      - name: Set up Kubeconfig
-        if: env.KUBECONFIG_DATA != ''
-        env:
-          KUBECONFIG_DATA: ${{ secrets.KUBECONFIG_DATA }}
+      - name: Verify K3s API is private
         run: |
-          mkdir -p ~/.kube
-          echo "${KUBECONFIG_DATA}" | base64 -d > ~/.kube/config
-          chmod 600 ~/.kube/config
+          if timeout 5 bash -c 'exec 3<>/dev/tcp/108.61.202.125/6443' 2>/dev/null; then
+            echo "The K3s API is reachable from the public runner." >&2
+            exit 1
+          fi
+          echo "The public runner cannot reach the K3s API."
 
-      - name: Deploy Selected Overlay & Verify Health
-        if: env.KUBECONFIG_DATA != ''
+      - name: Deploy and verify through the VPS release command
         env:
-          KUBECONFIG_DATA: ${{ secrets.KUBECONFIG_DATA }}
-          DEPLOY_OVERLAY: ${{ github.event.inputs.overlay || 'k8s/overlays/vultr' }}
+          RELEASE_SHA: ${{ needs.preflight-audit.outputs.release_sha }}
+          VULTR_DEPLOY_SSH_KEY: ${{ secrets.VULTR_DEPLOY_SSH_KEY }}
+          VULTR_DEPLOY_KNOWN_HOSTS: ${{ secrets.VULTR_DEPLOY_KNOWN_HOSTS }}
         run: |
-          RELEASE_IMAGE_REPOSITORY="ghcr.io/${GITHUB_REPOSITORY,,}" \
-            RELEASE_IMAGE_TAG="$(git rev-parse --short HEAD)" \
-            bash scripts/deploy-vultr.sh
+          set -euo pipefail
+          : "${VULTR_DEPLOY_SSH_KEY:?Configure VULTR_DEPLOY_SSH_KEY in the production environment.}"
+          : "${VULTR_DEPLOY_KNOWN_HOSTS:?Configure VULTR_DEPLOY_KNOWN_HOSTS in the production environment.}"
+          [[ "$RELEASE_SHA" =~ ^[a-f0-9]{40}$ ]]
+          umask 077
+          ssh_dir="$(mktemp -d "$RUNNER_TEMP/lostlink-ssh.XXXXXX")"
+          trap 'rm -f -- "$ssh_dir/key" "$ssh_dir/known_hosts"; rmdir -- "$ssh_dir"' EXIT
+          printf '%s\n' "$VULTR_DEPLOY_SSH_KEY" > "$ssh_dir/key"
+          printf '%s\n' "$VULTR_DEPLOY_KNOWN_HOSTS" > "$ssh_dir/known_hosts"
+          unset VULTR_DEPLOY_SSH_KEY VULTR_DEPLOY_KNOWN_HOSTS
+          ssh -nT -F /dev/null -i "$ssh_dir/key" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o ClearAllForwardings=yes \
+            -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$ssh_dir/known_hosts" \
+            -o GlobalKnownHostsFile=/dev/null -o ConnectTimeout=15 \
+            -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
+            lostlink-ci@108.61.202.125 "deploy $RELEASE_SHA"
 
+      - name: Verify public website and database-backed item list
+        run: |
+          set -euo pipefail
+          base_url=https://lostlink-demo.duckdns.org
+          curl -fsS --retry 4 --retry-all-errors --max-time 15 "$base_url/api/health/ready" |
+            jq -e '.status == "ready" and .database == "connected"' > /dev/null
+          curl -fsS --retry 4 --retry-all-errors --max-time 15 "$base_url/api/items?limit=1" |
+            jq -e '.items | type == "array"' > /dev/null
+          echo "Public readiness and database-backed item list passed."
