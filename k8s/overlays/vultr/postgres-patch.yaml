@@ -4,16 +4,7 @@ metadata:
   name: postgres
   namespace: lostlink
 spec:
-  replicas: 1
-  template:
-    spec:
-      containers:
-        - name: postgres
-          resources:
-            requests:
-              cpu: 100m
-              memory: 128Mi
-            limits:
-              cpu: 500m
-              memory: 384Mi
-
+  # Scaled to 0 to stop local CrashLoopBackOff when using Vultr Managed PostgreSQL.
+  # CRITICAL: PersistentVolumeClaim postgres-storage-postgres-0 and underlying data
+  # are fully preserved and must NOT be deleted.
+  replicas: 0

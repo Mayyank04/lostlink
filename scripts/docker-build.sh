@@ -13,7 +13,8 @@ RESET="\033[0m"
 # Default to linux/amd64 for Vultr Cloud Compute / x86_64 VPS nodes
 TARGET_PLATFORM="${TARGET_PLATFORM:-linux/amd64}"
 REGISTRY="${DOCKER_REGISTRY:-}" # e.g. ghcr.io/username or docker.io/username
-TAG="${IMAGE_TAG:-latest}"
+# Pinned version tag for reproducible production deployments (avoids 'latest')
+TAG="${IMAGE_TAG:-v2.0.0}"
 
 WEB_IMAGE="lostlink-web:${TAG}"
 WORKER_IMAGE="lostlink-worker:${TAG}"

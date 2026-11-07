@@ -33,11 +33,55 @@ spec:
             - /bin/sh
             - -c
             - |
-              until pg_isready -h postgres -p 5432 -U lostlink -d lostlink; do
-                echo "Worker waiting for postgresql service..."
+              echo "==> Verifying PostgreSQL connectivity on ${PGHOST}:${PGPORT}..."
+              until pg_isready -h "${PGHOST}" -p "${PGPORT}"; do
+                echo "Worker waiting for postgresql service at ${PGHOST}:${PGPORT}..."
                 sleep 2
               done
-              echo "PostgreSQL is online. Background worker initiating."
+              echo "==> PostgreSQL port is accepting connections."
+              
+              echo "==> Verifying database authentication for user '${PGUSER}' on database '${PGDATABASE}' (SSL: ${PGSSLMODE})..."
+              until psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${PGDATABASE}" -c "SELECT 1;" >/dev/null 2>&1; do
+                echo "Worker awaiting successful database authentication..."
+                sleep 2
+              done
+              echo "==> PostgreSQL authentication verified. Background worker initiating."
+          env:
+            - name: PGHOST
+              valueFrom:
+                configMapKeyRef:
+                  name: lostlink-config
+                  key: POSTGRES_HOST
+            - name: PGPORT
+              valueFrom:
+                configMapKeyRef:
+                  name: lostlink-config
+                  key: POSTGRES_PORT
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: lostlink-secrets
+                  key: POSTGRES_USER
+            - name: PGDATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: lostlink-secrets
+                  key: POSTGRES_DB
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: lostlink-secrets
+                  key: POSTGRES_PASSWORD
+            - name: PGSSLMODE
+              valueFrom:
+                configMapKeyRef:
+                  name: lostlink-config
+                  key: PGSSLMODE
+            - name: PGCONNECT_TIMEOUT
+              valueFrom:
+                configMapKeyRef:
+                  name: lostlink-config
+                  key: PGCONNECT_TIMEOUT
       containers:
         - name: worker
           image: lostlink-worker:latest

@@ -6,11 +6,16 @@ metadata:
 data:
   NODE_ENV: "production"
   PORT: "3000"
-  NEXTAUTH_URL: "https://lostlink.example.com"
-  NEXT_PUBLIC_APP_URL: "https://lostlink.example.com"
+  NEXTAUTH_URL: "https://lostlink-demo.duckdns.org"
+  NEXT_PUBLIC_APP_URL: "https://lostlink-demo.duckdns.org"
   NEXT_PUBLIC_DEMO_MODE: "false"
   NEXT_TELEMETRY_DISABLED: "1"
+  POSTGRES_HOST: "vultr-prod-d13691be-e6c6-40df-8534-bcdcb8b8dcc8-vultr-prod-fec6.vultrdb.com"
+  POSTGRES_PORT: "25257"
+  PGSSLMODE: "require"
+  PGCONNECT_TIMEOUT: "5"
   STORAGE_PROVIDER: "s3"
+  STORAGE_DRIVER: "s3"
   STORAGE_ENDPOINT: "https://ewr1.vultrobjects.com"
   STORAGE_REGION: "ewr1"
   STORAGE_BUCKET_NAME: "lostlink-uploads"
@@ -18,4 +23,3 @@ data:
   STORAGE_PUBLIC_URL: "https://lostlink-uploads.ewr1.vultrobjects.com"
   OUTBOX_POLL_INTERVAL_MS: "3000"
   WORKER_HEALTH_PORT: "3001"
-

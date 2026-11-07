@@ -13,10 +13,10 @@ spec:
   ingressClassName: traefik
   tls:
     - hosts:
-        - lostlink.example.com
+        - lostlink-demo.duckdns.org
       secretName: lostlink-vultr-tls
   rules:
-    - host: lostlink.example.com
+    - host: lostlink-demo.duckdns.org
       http:
         paths:
           - path: /

@@ -14,10 +14,11 @@ patches:
   - path: deployment-patch.yaml
   - path: postgres-patch.yaml
   - path: hpa-patch.yaml
+  - path: migration-job-patch.yaml
 
-# To supply production secrets on Vultr:
-# 1. Copy secret.example.yaml to secret.yaml
-# 2. Fill in real strong random passwords, keys, and S3 credentials
-# 3. Uncomment the secret.yaml resource below or apply it via kubectl
-# resources:
-#   - secret.yaml
+# Pin immutable container image tags for production workloads (avoid 'latest')
+images:
+  - name: lostlink-web
+    newTag: v2.0.0
+  - name: lostlink-worker
+    newTag: v2.0.0

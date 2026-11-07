@@ -8,6 +8,7 @@ metadata:
     app.kubernetes.io/component: db-migration
 spec:
   backoffLimit: 5
+  ttlSecondsAfterFinished: 600
   template:
     metadata:
       labels:
@@ -28,14 +29,55 @@ spec:
             - /bin/sh
             - -c
             - |
-              until pg_isready -h postgres -p 5432 -U lostlink -d lostlink; do
-                echo "Waiting for PostgreSQL to be ready..."
+              echo "==> Verifying PostgreSQL connectivity on ${PGHOST}:${PGPORT}..."
+              until pg_isready -h "${PGHOST}" -p "${PGPORT}"; do
+                echo "Waiting for PostgreSQL host ${PGHOST}:${PGPORT} to accept connections..."
                 sleep 2
               done
-              echo "PostgreSQL is reachable!"
+              echo "==> PostgreSQL port is accepting connections."
+              
+              echo "==> Verifying database authentication for user '${PGUSER}' on database '${PGDATABASE}' (SSL: ${PGSSLMODE})..."
+              until psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${PGDATABASE}" -c "SELECT 1;" >/dev/null 2>&1; do
+                echo "Awaiting successful database authentication..."
+                sleep 2
+              done
+              echo "==> Database authentication verified successfully!"
           env:
+            - name: PGHOST
+              valueFrom:
+                configMapKeyRef:
+                  name: lostlink-config
+                  key: POSTGRES_HOST
+            - name: PGPORT
+              valueFrom:
+                configMapKeyRef:
+                  name: lostlink-config
+                  key: POSTGRES_PORT
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: lostlink-secrets
+                  key: POSTGRES_USER
+            - name: PGDATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: lostlink-secrets
+                  key: POSTGRES_DB
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: lostlink-secrets
+                  key: POSTGRES_PASSWORD
+            - name: PGSSLMODE
+              valueFrom:
+                configMapKeyRef:
+                  name: lostlink-config
+                  key: PGSSLMODE
             - name: PGCONNECT_TIMEOUT
-              value: "5"
+              valueFrom:
+                configMapKeyRef:
+                  name: lostlink-config
+                  key: PGCONNECT_TIMEOUT
       containers:
         - name: prisma-migrate
           image: lostlink-worker:latest
@@ -44,8 +86,9 @@ spec:
             - /bin/sh
             - -c
             - |
-              echo "Applying database migrations..."
-              npx prisma migrate deploy || npx prisma db push --skip-generate
+              set -e
+              echo "Applying database schema migrations via Prisma..."
+              npx prisma migrate deploy
               echo "Database schema synchronized successfully."
           envFrom:
             - configMapRef:

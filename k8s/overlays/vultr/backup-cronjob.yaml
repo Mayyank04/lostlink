@@ -31,8 +31,8 @@ spec:
                   set -euo pipefail
                   TIMESTAMP=$(date +%Y%m%d_%H%M%S)
                   BACKUP_FILE="/backups/lostlink_backup_${TIMESTAMP}.sql.gz"
-                  echo "[$(date -u)] Starting automated PostgreSQL backup..."
-                  pg_dump -h postgres -U "$POSTGRES_USER" -d "$POSTGRES_DB" | gzip -9 > "$BACKUP_FILE"
+                  echo "[$(date -u)] Starting automated PostgreSQL backup from ${PGHOST}:${PGPORT} (${POSTGRES_DB})..."
+                  pg_dump -h "$PGHOST" -p "$PGPORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB" | gzip -9 > "$BACKUP_FILE"
                   BACKUP_SIZE=$(ls -lh "$BACKUP_FILE" | awk '{print $5}')
                   echo "[$(date -u)] Backup completed successfully: ${BACKUP_FILE} (Size: ${BACKUP_SIZE})"
                   
@@ -40,6 +40,21 @@ spec:
                   find /backups -name "lostlink_backup_*.sql.gz" -mtime +7 -exec rm -f {} \;
                   echo "[$(date -u)] Retention cleanup completed."
               env:
+                - name: PGHOST
+                  valueFrom:
+                    configMapKeyRef:
+                      name: lostlink-config
+                      key: POSTGRES_HOST
+                - name: PGPORT
+                  valueFrom:
+                    configMapKeyRef:
+                      name: lostlink-config
+                      key: POSTGRES_PORT
+                - name: PGSSLMODE
+                  valueFrom:
+                    configMapKeyRef:
+                      name: lostlink-config
+                      key: PGSSLMODE
                 - name: POSTGRES_DB
                   valueFrom:
                     secretKeyRef:
@@ -62,4 +77,3 @@ spec:
             - name: backup-storage
               persistentVolumeClaim:
                 claimName: postgres-storage-postgres-0
-
