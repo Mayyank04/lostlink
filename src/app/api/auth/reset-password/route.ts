@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { hashPassword } from '@/lib/auth/password';
@@ -20,9 +21,10 @@ export async function POST(req: Request) {
     }
 
     const { token, password } = result.data;
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
     const resetToken = await prisma.passwordResetToken.findUnique({
-      where: { token },
+      where: { token: hashedToken },
     });
 
     if (!resetToken || resetToken.expiresAt < new Date()) {
@@ -52,6 +54,9 @@ export async function POST(req: Request) {
       }),
       prisma.passwordResetToken.delete({
         where: { id: resetToken.id },
+      }),
+      prisma.session.deleteMany({
+        where: { userId: user.id },
       }),
       prisma.auditLog.create({
         data: {

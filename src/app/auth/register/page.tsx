@@ -89,6 +89,10 @@ function RegisterForm() {
   }, [queryCollegeId]);
 
   const selectedCollege = selectedCollegeObj || colleges.find((c) => c.id === collegeId);
+  const isCollegeVerified = Boolean(
+    selectedCollege &&
+      (selectedCollege.domainVerificationStatus === 'VERIFIED' || selectedCollege.isVerified)
+  );
   const emailDomain = email.includes('@') ? email.split('@')[1]?.toLowerCase().trim() : '';
 
   const isPublicProvider = emailDomain ? PUBLIC_EMAIL_DOMAINS.has(emailDomain) : false;
@@ -113,6 +117,14 @@ function RegisterForm() {
     }
     if (!collegeId) {
       error('Selection Required', 'Please select your enrolled university before registering.');
+      return;
+    }
+
+    if (!isCollegeVerified) {
+      error(
+        'Institution Pending Verification',
+        'Student registration is not permitted until the university domain has been officially verified by platform administrators.'
+      );
       return;
     }
 
@@ -215,6 +227,12 @@ function RegisterForm() {
                 Approved institutional domain(s): @
                 {selectedCollege.emailDomains?.join(', @') || selectedCollege.domain}
               </p>
+            )}
+            {selectedCollege && !isCollegeVerified && (
+              <div className="mt-2 p-2.5 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>Selected institution is awaiting official domain verification. Registrations are disabled until verified.</span>
+              </div>
             )}
           </div>
 
@@ -329,7 +347,7 @@ function RegisterForm() {
             size="md"
             className="w-full text-xs font-bold bg-brandTeal-700 hover:bg-brandTeal-800"
             isLoading={isLoading}
-            disabled={!isDomainAllowed || isPublicProvider || (Boolean(password) && password !== confirmPassword)}
+            disabled={!isDomainAllowed || isPublicProvider || !isCollegeVerified || (Boolean(password) && password !== confirmPassword)}
           >
             Continue to Email Verification
           </Button>

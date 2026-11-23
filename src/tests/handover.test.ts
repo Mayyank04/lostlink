@@ -12,7 +12,10 @@ describe('Phase 3 Handover Verification & Secure Returns', () => {
   let testClaim: any;
 
   beforeAll(async () => {
-    const college = await prisma.college.findFirst({ include: { campuses: true } });
+    const college = await prisma.college.findFirst({
+      where: { campuses: { some: {} } },
+      include: { campuses: true },
+    });
     if (!college || college.campuses.length === 0) {
       throw new Error('College with campus required in DB');
     }

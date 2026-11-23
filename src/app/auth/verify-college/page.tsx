@@ -66,7 +66,7 @@ function VerifyCollegeContent() {
       const res = await fetch('/api/auth/resend-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, collegeId }),
       });
 
       const data = await res.json();

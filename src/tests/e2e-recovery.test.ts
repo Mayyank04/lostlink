@@ -26,7 +26,10 @@ describe('Phase 3 End-to-End Item Recovery Lifecycle', () => {
   let plainOtp: string;
 
   beforeAll(async () => {
-    college = await prisma.college.findFirst({ include: { campuses: true } });
+    college = await prisma.college.findFirst({
+      where: { campuses: { some: {} } },
+      include: { campuses: true },
+    });
     if (!college || college.campuses.length === 0) {
       throw new Error('Database must have at least one college and campus');
     }

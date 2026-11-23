@@ -11,7 +11,10 @@ describe('Phase 3 Real PostgreSQL Messaging Architecture', () => {
   let conversation: any;
 
   beforeAll(async () => {
-    const college = await prisma.college.findFirst({ include: { campuses: true } });
+    const college = await prisma.college.findFirst({
+      where: { campuses: { some: {} } },
+      include: { campuses: true },
+    });
     if (!college || college.campuses.length === 0) {
       throw new Error('College with campus required in DB');
     }

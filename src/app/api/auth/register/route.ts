@@ -158,8 +158,8 @@ export async function POST(req: Request) {
       return user;
     });
 
-    // Automatically generate and dispatch secure email verification OTP
-    await createEmailVerificationOTP(newUser.email);
+    // Automatically generate and dispatch secure email verification OTP bound to college and user
+    await createEmailVerificationOTP(newUser.email, college.id, newUser.id);
 
     const { token, expiresAt } = await createSession(newUser.id);
     await setSessionCookie(token, expiresAt);

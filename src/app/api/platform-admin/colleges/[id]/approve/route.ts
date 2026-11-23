@@ -3,13 +3,17 @@ import { prisma } from '@/lib/db';
 import { requireAuth, requirePlatformAdmin, errorResponse } from '@/lib/auth/tenant';
 import { CollegeStatus } from '@prisma/client';
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(
+  req: NextRequest,
+  { params }: { params: { id: string } | Promise<{ id: string }> }
+) {
   try {
     const user = await requireAuth(req);
     requirePlatformAdmin(user);
+    const { id } = await Promise.resolve(params);
 
     const college = await prisma.college.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
     if (!college) {
       return NextResponse.json({ error: 'College not found' }, { status: 404 });
@@ -17,8 +21,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     const updated = await prisma.$transaction(async (tx) => {
       const col = await tx.college.update({
-        where: { id: params.id },
-        data: { status: CollegeStatus.ACTIVE, isArchived: false },
+        where: { id },
+        data: {
+          status: CollegeStatus.ACTIVE,
+          domainVerificationStatus: 'VERIFIED',
+          isArchived: false,
+        },
       });
 
       await tx.auditLog.create({

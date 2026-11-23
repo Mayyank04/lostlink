@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { School, Search, MapPin, CheckCircle2, ChevronRight, X, PlusCircle, Check } from 'lucide-react';
+import { School, Search, MapPin, CheckCircle2, ChevronRight, X, PlusCircle, Check, AlertCircle, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { CollegeSearchResult } from './CollegeCard';
@@ -88,40 +88,48 @@ export const SearchableCollegeSelector: React.FC<SearchableCollegeSelectorProps>
 
       {/* Selected College Preview Card */}
       {selectedCollege ? (
-        <div
-          onClick={() => setModalOpen(true)}
-          className="cursor-pointer p-3 rounded-xl border border-brandTeal-200 dark:border-brandTeal-900 bg-brandTeal-50/50 dark:bg-brandTeal-950/20 hover:border-brandTeal-300 transition-colors flex items-center justify-between gap-3 shadow-xs"
-        >
-          <div className="flex items-center gap-3 min-w-0">
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white text-xs shrink-0 shadow-xs"
-              style={{ backgroundColor: selectedCollege.primaryColor || '#0F766E' }}
-            >
-              {(selectedCollege.shortName || selectedCollege.name).charAt(0)}
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <p className="font-bold text-xs text-slate-900 dark:text-white truncate">
-                  {selectedCollege.name}
-                </p>
-                {selectedCollege.shortName && (
-                  <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                    {selectedCollege.shortName}
-                  </span>
-                )}
+        <div className="space-y-2">
+          <div
+            onClick={() => setModalOpen(true)}
+            className="cursor-pointer p-3 rounded-xl border border-brandTeal-200 dark:border-brandTeal-900 bg-brandTeal-50/50 dark:bg-brandTeal-950/20 hover:border-brandTeal-300 transition-colors flex items-center justify-between gap-3 shadow-xs"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white text-xs shrink-0 shadow-xs"
+                style={{ backgroundColor: selectedCollege.primaryColor || '#0F766E' }}
+              >
+                {(selectedCollege.shortName || selectedCollege.name).charAt(0)}
               </div>
-              <p className="text-[11px] text-slate-500 truncate mt-0.5">
-                {selectedCollege.city}, {selectedCollege.state} • {selectedCollege.country}
-              </p>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <p className="font-bold text-xs text-slate-900 dark:text-white truncate">
+                    {selectedCollege.name}
+                  </p>
+                  {selectedCollege.shortName && (
+                    <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                      {selectedCollege.shortName}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                  {selectedCollege.city}, {selectedCollege.state} • {selectedCollege.country}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-[11px] font-bold text-brandTeal-700 dark:text-brandTeal-400">
+                Change
+              </span>
+              <ChevronRight className="w-4 h-4 text-slate-400" />
             </div>
           </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="text-[11px] font-bold text-brandTeal-700 dark:text-brandTeal-400">
-              Change
-            </span>
-            <ChevronRight className="w-4 h-4 text-slate-400" />
-          </div>
+          {selectedCollege && !selectedCollege.isVerified && selectedCollege.domainVerificationStatus !== 'VERIFIED' && (
+            <div className="p-2.5 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>Selected institution is pending domain verification. Student registration is not permitted until institutional verification is complete.</span>
+            </div>
+          )}
         </div>
       ) : (
         /* Empty Prompt Button */
@@ -199,13 +207,26 @@ export const SearchableCollegeSelector: React.FC<SearchableCollegeSelectorProps>
                         {(col.shortName || col.name).charAt(0)}
                       </div>
                       <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <p className="font-semibold text-xs text-slate-900 dark:text-white truncate">
                             {col.name}
                           </p>
                           {col.shortName && (
                             <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
                               {col.shortName}
+                            </span>
+                          )}
+                          {col.isVerified || col.domainVerificationStatus === 'VERIFIED' ? (
+                            <span className="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                              Verified
+                            </span>
+                          ) : col.domainVerificationStatus === 'REJECTED' ? (
+                            <span className="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
+                              Rejected
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                              Pending
                             </span>
                           )}
                         </div>

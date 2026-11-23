@@ -51,7 +51,8 @@ const createCollegeSchema = z.object({
     ])
     .optional()
     .default('Main Campus'),
-  status: z.nativeEnum(CollegeStatus).default(CollegeStatus.ACTIVE),
+  status: z.nativeEnum(CollegeStatus).default(CollegeStatus.PENDING),
+  domainVerificationStatus: z.enum(['PENDING', 'UNDER_REVIEW', 'VERIFIED', 'REJECTED']).default('PENDING'),
   adminEmail: z.string().email('Invalid administrator email format').optional().or(z.literal('')),
   collegeAdmin: z
     .object({
@@ -194,6 +195,7 @@ export async function POST(req: NextRequest) {
           contactEmail: validated.contactEmail || null,
           contactPhone: validated.contactPhone || null,
           status: validated.status,
+          domainVerificationStatus: validated.domainVerificationStatus,
           reviewNotes: validated.reviewNotes || null,
         },
       });

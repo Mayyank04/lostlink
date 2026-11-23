@@ -29,18 +29,24 @@ export async function POST(req: Request) {
     const user = await prisma.user.findUnique({ where: { email } });
 
     if (user) {
-      const token = crypto.randomBytes(32).toString('hex');
+      const rawToken = crypto.randomBytes(32).toString('hex');
+      const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
       const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+      // Invalidate existing active reset tokens for this email to prevent multiple valid tokens
+      await prisma.passwordResetToken.deleteMany({
+        where: { email },
+      }).catch(() => {});
 
       await prisma.passwordResetToken.create({
         data: {
           email,
-          token,
+          token: hashedToken,
           expiresAt,
         },
       });
 
-      console.log(`[AUTH] Password reset token for ${email}: ${token}`);
+      console.log(`[AUTH] Password reset token issued for ${email}`);
     }
 
     return NextResponse.json({

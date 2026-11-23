@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { School, MapPin, Building2, CheckCircle2, Users, Package, ArrowRight, Check } from 'lucide-react';
+import { School, MapPin, Building2, CheckCircle2, Users, Package, ArrowRight, Check, AlertCircle, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
 export interface CollegeSearchResult {
@@ -19,6 +19,7 @@ export interface CollegeSearchResult {
   domain?: string;
   emailDomains: string[];
   isVerified: boolean;
+  domainVerificationStatus?: string;
   campuses?: Array<{
     id: string;
     name: string;
@@ -95,12 +96,29 @@ export const CollegeCard: React.FC<CollegeCardProps> = ({
             </div>
           </div>
 
-          {college.isVerified && (
+          {college.isVerified ? (
             <span
-              className="p-1 rounded-full text-brandTeal-600 dark:text-brandTeal-400 bg-brandTeal-50 dark:bg-brandTeal-950/60 shrink-0"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 shrink-0"
               title="Verified Institutional Partner"
             >
-              <CheckCircle2 className="w-4 h-4" />
+              <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+              <span>Verified Partner</span>
+            </span>
+          ) : college.domainVerificationStatus === 'REJECTED' ? (
+            <span
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 shrink-0"
+              title="Domain Verification Rejected"
+            >
+              <XCircle className="w-3 h-3 text-rose-600 dark:text-rose-400" />
+              <span>Registration Unavailable</span>
+            </span>
+          ) : (
+            <span
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 shrink-0"
+              title="Domain Verification Pending Review"
+            >
+              <AlertCircle className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+              <span>Verification Pending</span>
             </span>
           )}
         </div>

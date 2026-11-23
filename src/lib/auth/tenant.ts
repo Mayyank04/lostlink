@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { AuthenticatedUser, getCurrentUser } from './session';
-import { UserRole, MembershipStatus } from '@prisma/client';
+import { UserRole, MembershipStatus, UserStatus } from '@prisma/client';
 
 export class AuthError extends Error {
   statusCode: number;
@@ -18,6 +18,9 @@ export async function requireAuth(req?: Request): Promise<AuthenticatedUser> {
   const user = await getCurrentUser(req);
   if (!user) {
     throw new AuthError('Authentication required. Please sign in.', 401);
+  }
+  if (user.status === UserStatus.SUSPENDED) {
+    throw new AuthError('Account is suspended. Access denied.', 403);
   }
   return user;
 }
@@ -39,6 +42,10 @@ export function requireCollegeMembership(
   user: AuthenticatedUser,
   collegeId: string
 ): NonNullable<AuthenticatedUser['memberships'][0]> {
+  if (user.status === UserStatus.SUSPENDED) {
+    throw new AuthError('Account is suspended. Access denied.', 403);
+  }
+
   if (user.role === UserRole.PLATFORM_ADMIN) {
     return {
       id: 'platform-admin-membership',
@@ -68,6 +75,9 @@ export function requireCollegeAdmin(
   user: AuthenticatedUser,
   collegeId?: string
 ): boolean {
+  if (user.status === UserStatus.SUSPENDED) {
+    throw new AuthError('Account is suspended. Access denied.', 403);
+  }
   if (user.role === UserRole.PLATFORM_ADMIN) return true;
 
   if (user.role === UserRole.COLLEGE_ADMIN || user.role === UserRole.COLLEGE_MODERATOR) {
@@ -85,6 +95,9 @@ export function requireCollegeAdmin(
  * Requires Platform Administrator role
  */
 export function requirePlatformAdmin(user: AuthenticatedUser): boolean {
+  if (user.status === UserStatus.SUSPENDED) {
+    throw new AuthError('Account is suspended. Access denied.', 403);
+  }
   if (user.role !== UserRole.PLATFORM_ADMIN) {
     throw new AuthError('Platform administrator privileges required.', 403);
   }

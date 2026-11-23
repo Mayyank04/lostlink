@@ -12,7 +12,10 @@ describe('Phase 3 Ownership Claims & State Machine', () => {
   let testItem: any;
 
   beforeAll(async () => {
-    const college = await prisma.college.findFirst({ include: { campuses: true } });
+    const college = await prisma.college.findFirst({
+      where: { campuses: { some: {} } },
+      include: { campuses: true },
+    });
     if (!college || college.campuses.length === 0) {
       throw new Error('Database must have at least one college and campus seeded');
     }

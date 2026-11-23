@@ -185,7 +185,7 @@ describe('LostLink 2.0 — Comprehensive Audit & Security Verification Test Suit
     // Second use with identical OTP fails
     const secondAttempt = await verifyEmailVerificationOTP(email, otp);
     expect(secondAttempt.success).toBe(false);
-    expect(secondAttempt.error).toContain('invalid or has expired');
+    expect(secondAttempt.error).toMatch(/already been used|invalid or has expired/);
   });
 
   // 5. Unauthenticated college verification cannot verify another user
@@ -537,6 +537,15 @@ describe('LostLink 2.0 — Comprehensive Audit & Security Verification Test Suit
 
   // 20. Newly approved college appears in search
   it('20. Newly approved college appears immediately in public college search', async () => {
+    // Approve the created college so it transitions to ACTIVE & VERIFIED
+    await prisma.college.update({
+      where: { id: testCreatedCollegeId },
+      data: {
+        status: 'ACTIVE',
+        domainVerificationStatus: 'VERIFIED',
+      },
+    });
+
     const req = new NextRequest('http://localhost:3000/api/colleges/search?q=National%20Audit');
     const res = await searchCollegesRoute(req);
     expect(res.status).toBe(200);

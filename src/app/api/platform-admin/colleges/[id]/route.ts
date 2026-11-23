@@ -27,13 +27,17 @@ const updateCollegeSchema = z.object({
   status: z.nativeEnum(CollegeStatus).optional(),
 });
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(
+  req: NextRequest,
+  { params }: { params: { id: string } | Promise<{ id: string }> }
+) {
   try {
     const user = await requireAuth(req);
     requirePlatformAdmin(user);
+    const { id } = await Promise.resolve(params);
 
     const college = await prisma.college.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         campuses: {
           include: {
@@ -72,16 +76,20 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: { id: string } | Promise<{ id: string }> }
+) {
   try {
     const user = await requireAuth(req);
     requirePlatformAdmin(user);
+    const { id } = await Promise.resolve(params);
 
     const body = await req.json();
     const validated = updateCollegeSchema.parse(body);
 
     const existing = await prisma.college.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
     if (!existing) {
       return NextResponse.json({ error: 'College not found' }, { status: 404 });
@@ -97,16 +105,27 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       }
     }
 
+    // Check if domain list has changed — invalidates previous verification approval until re-reviewed
+    let domainStatusOverride: string | undefined = undefined;
+    const normalizedNewDomains = validated.emailDomains?.map((d) => d.trim().toLowerCase().replace(/^@/, ''));
+    if (
+      normalizedNewDomains &&
+      JSON.stringify([...normalizedNewDomains].sort()) !== JSON.stringify([...existing.emailDomains].sort())
+    ) {
+      domainStatusOverride = 'UNDER_REVIEW';
+    }
+
     const updated = await prisma.$transaction(async (tx) => {
       const col = await tx.college.update({
-        where: { id: params.id },
+        where: { id },
         data: {
           name: validated.name?.trim(),
           shortName: validated.shortName !== undefined ? (validated.shortName?.trim() || null) : undefined,
           slug: validated.slug?.trim().toLowerCase(),
           institutionType: validated.institutionType,
           website: validated.website !== undefined ? validated.website || null : undefined,
-          emailDomains: validated.emailDomains?.map((d) => d.trim().toLowerCase().replace(/^@/, '')),
+          emailDomains: normalizedNewDomains,
+          domainVerificationStatus: domainStatusOverride,
           city: validated.city?.trim(),
           state: validated.state?.trim(),
           country: validated.country?.trim(),
@@ -124,11 +143,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         data: {
           actorId: user.id,
           collegeId: col.id,
-          action: 'UPDATE_COLLEGE',
+          action: domainStatusOverride ? 'COLLEGE_DOMAINS_MODIFIED_UNDER_REVIEW' : 'UPDATE_COLLEGE',
           resourceType: 'COLLEGE',
           resourceId: col.id,
           metadata: JSON.stringify({
             changes: validated,
+            domainStatusChanged: domainStatusOverride || null,
             updatedBy: user.email,
             timestamp: new Date().toISOString(),
           }),

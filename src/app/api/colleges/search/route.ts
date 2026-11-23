@@ -79,6 +79,7 @@ export async function GET(req: NextRequest) {
           institutionType: true,
           website: true,
           emailDomains: true,
+          domainVerificationStatus: true,
           status: true,
           createdAt: true,
           campuses: {
@@ -114,7 +115,8 @@ export async function GET(req: NextRequest) {
       website: c.website,
       domain: c.emailDomains[0] || '',
       emailDomains: c.emailDomains,
-      isVerified: true,
+      domainVerificationStatus: c.domainVerificationStatus,
+      isVerified: c.domainVerificationStatus === 'VERIFIED',
       campuses: c.campuses,
       stats: {
         activeItems: c._count.items,
