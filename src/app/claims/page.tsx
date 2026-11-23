@@ -10,6 +10,7 @@ import { ClaimService, ReportService } from '@/lib/services/api';
 import { HandoverModal } from '@/components/claims/HandoverModal';
 import { EmptyState } from '@/components/common/EmptyState';
 import { Button } from '@/components/ui/Button';
+import { TableRowSkeleton } from '@/components/common/LoadingSkeleton';
 import { formatDate } from '@/lib/utils';
 import {
   ShieldCheck,
@@ -178,11 +179,7 @@ function ClaimsContent() {
 
       {/* Claims List */}
       {isLoading ? (
-        <div className="space-y-4">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-32 rounded-2xl bg-slate-100 dark:bg-slate-800 animate-pulse" />
-          ))}
-        </div>
+        <TableRowSkeleton columns={4} rows={3} />
       ) : currentList.length > 0 ? (
         <div className="space-y-4">
           {currentList.map((claim) => (

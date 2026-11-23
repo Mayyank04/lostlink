@@ -8,6 +8,7 @@ import { useToast } from '@/context/ToastContext';
 import { ItemReport } from '@/types/report';
 import { ReportService, MatchingService } from '@/lib/services/api';
 import { StatusBadge } from '@/components/common/StatusBadge';
+import { ClaimDetailSkeleton } from '@/components/common/LoadingSkeleton';
 import { MatchScore } from '@/components/matching/MatchScore';
 import { ClaimForm } from '@/components/claims/ClaimForm';
 import { Modal } from '@/components/ui/Modal';
@@ -22,7 +23,7 @@ import {
   Share2,
   Flag,
   ArrowLeft,
-  Sparkles,
+  PlusCircle,
   MessageSquare,
   Lock,
   Eye,
@@ -65,9 +66,8 @@ export default function ItemDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto px-4 sm:px-6 py-12 max-w-4xl text-center">
-        <div className="w-10 h-10 border-4 border-brandTeal-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-        <p className="text-xs text-slate-500">Loading item verification record...</p>
+      <div className="container mx-auto px-4 sm:px-6 py-8 max-w-5xl">
+        <ClaimDetailSkeleton />
       </div>
     );
   }
@@ -281,7 +281,7 @@ export default function ItemDetailPage() {
             {item.type === 'lost' && (
               <Link href={`/report/found`}>
                 <Button size="lg" variant="secondary" className="w-full text-sm font-bold shadow-card">
-                  <Sparkles className="w-4 h-4 mr-2" />
+                  <PlusCircle className="w-4 h-4 mr-2" />
                   Found This? Report Found Match
                 </Button>
               </Link>

@@ -18,7 +18,6 @@ import {
   MapPin,
   Calendar,
   Layers,
-  Sparkles,
 } from 'lucide-react';
 
 interface MatchComparisonProps {

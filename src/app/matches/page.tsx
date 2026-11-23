@@ -9,7 +9,8 @@ import { MatchingService } from '@/lib/services/api';
 import { MatchComparison } from '@/components/matching/MatchComparison';
 import { EmptyState } from '@/components/common/EmptyState';
 import { Button } from '@/components/ui/Button';
-import { Sparkles, ShieldCheck, Filter, RefreshCw, Info } from 'lucide-react';
+import { MatchResultSkeleton } from '@/components/common/LoadingSkeleton';
+import { Target, ShieldCheck, Filter, RefreshCw, Info } from 'lucide-react';
 
 export default function MatchesPage() {
   const { activeCollege } = useAuth();
@@ -107,8 +108,8 @@ export default function MatchesPage() {
       </div>
 
       {/* Algorithmic Explainability Banner */}
-      <div className="p-4 rounded-2xl bg-slate-900 text-slate-200 text-xs flex items-start gap-3 shadow-card">
-        <Sparkles className="w-5 h-5 text-brandTeal-400 shrink-0 mt-0.5" />
+      <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 text-xs flex items-start gap-3 shadow-sm">
+        <Target className="w-5 h-5 text-brandTeal-400 shrink-0 mt-0.5" />
         <div className="space-y-1">
           <p className="font-bold text-white text-xs">
             How Match Radar Computes Potential Links
@@ -123,7 +124,7 @@ export default function MatchesPage() {
       {isLoading ? (
         <div className="space-y-4">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-64 rounded-2xl bg-slate-100 dark:bg-slate-800 animate-pulse" />
+            <MatchResultSkeleton key={i} />
           ))}
         </div>
       ) : activeMatches.length > 0 ? (

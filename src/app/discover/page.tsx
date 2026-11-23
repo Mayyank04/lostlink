@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { ItemReport, ItemCategory, ReportType, ItemStatus } from '@/types/report';
 import { ReportService } from '@/lib/services/api';
 import { ItemCard } from '@/components/items/ItemCard';
-import { CardSkeleton } from '@/components/common/LoadingSkeleton';
+import { ItemCardSkeleton } from '@/components/common/LoadingSkeleton';
 import { EmptyState } from '@/components/common/EmptyState';
 import { Pagination } from '@/components/common/Pagination';
 import { Button } from '@/components/ui/Button';
@@ -324,11 +324,19 @@ function DiscoverContent() {
 
       {/* Item Listings Grid / List */}
       {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <CardSkeleton key={i} />
-          ))}
-        </div>
+        layout === 'grid' ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <ItemCardSkeleton key={i} layout="grid" />
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <ItemCardSkeleton key={i} layout="list" />
+            ))}
+          </div>
+        )
       ) : paginatedItems.length > 0 ? (
         <div
           className={

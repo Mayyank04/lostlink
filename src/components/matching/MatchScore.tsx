@@ -1,6 +1,6 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
-import { Sparkles, ShieldCheck, AlertCircle } from 'lucide-react';
+import { Target, ShieldCheck, AlertCircle } from 'lucide-react';
 
 interface MatchScoreProps {
   score: number;
@@ -22,7 +22,7 @@ export const MatchScore: React.FC<MatchScoreProps> = ({
       border: 'border-emerald-200 dark:border-emerald-800',
       ringColor: 'stroke-emerald-600',
       label: 'High Match Probability',
-      icon: Sparkles,
+      icon: Target,
     },
     medium: {
       color: 'text-amber-600 dark:text-amber-400',

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
-import { HelpCircle, ChevronDown, ChevronUp, Sparkles, ShieldCheck } from 'lucide-react';
+import { HelpCircle, ChevronDown, ChevronUp, ShieldCheck } from 'lucide-react';
 
 export default function FAQPage() {
   const [openIdx, setOpenIdx] = useState<number | null>(0);

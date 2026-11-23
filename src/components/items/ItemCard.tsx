@@ -26,7 +26,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, layout = 'grid' }) => 
             <img
               src={item.images[0]}
               alt={item.title}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              className="w-full h-full object-cover"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs">
@@ -97,7 +97,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, layout = 'grid' }) => 
             <img
               src={item.images[0]}
               alt={item.title}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              className="w-full h-full object-cover"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs">

@@ -23,6 +23,7 @@ import {
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
+import { DashboardStatsSkeleton, TableRowSkeleton } from '@/components/common/LoadingSkeleton';
 import Link from 'next/link';
 
 type TabType = 'overview' | 'students' | 'reports' | 'claims' | 'campuses' | 'handover';
@@ -391,46 +392,53 @@ export default function CollegeAdminPage() {
 
       {/* Tab 1: Overview */}
       {activeTab === 'overview' && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-card">
-              <span className="text-xs font-semibold text-slate-400">Registered Students</span>
-              <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">
-                {stats.totalStudents}
-              </p>
-              <p className="text-[11px] text-teal-600 font-semibold">{stats.verifiedStudents} verified</p>
-            </div>
+        isLoading ? (
+          <DashboardStatsSkeleton />
+        ) : (
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+                <span className="text-xs font-semibold text-slate-400">Registered Students</span>
+                <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">
+                  {stats.totalStudents}
+                </p>
+                <p className="text-[11px] text-teal-600 font-semibold">{stats.verifiedStudents} verified</p>
+              </div>
 
-            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-card">
-              <span className="text-xs font-semibold text-slate-400">Total Reports</span>
-              <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">
-                {stats.lostItems + stats.foundItems}
-              </p>
-              <p className="text-[11px] text-slate-400">{stats.lostItems} lost • {stats.foundItems} found</p>
-            </div>
+              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+                <span className="text-xs font-semibold text-slate-400">Total Reports</span>
+                <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">
+                  {stats.lostItems + stats.foundItems}
+                </p>
+                <p className="text-[11px] text-slate-400">{stats.lostItems} lost • {stats.foundItems} found</p>
+              </div>
 
-            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-card">
-              <span className="text-xs font-semibold text-slate-400">Returned Items</span>
-              <p className="text-2xl font-black text-emerald-600 mt-1">
-                {stats.returnedItems}
-              </p>
-              <p className="text-[11px] text-emerald-600 font-semibold">Confirmed returns</p>
-            </div>
+              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+                <span className="text-xs font-semibold text-slate-400">Returned Items</span>
+                <p className="text-2xl font-black text-emerald-600 mt-1">
+                  {stats.returnedItems}
+                </p>
+                <p className="text-[11px] text-emerald-600 font-semibold">Confirmed returns</p>
+              </div>
 
-            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-card">
-              <span className="text-xs font-semibold text-slate-400">Campus Recovery Rate</span>
-              <p className="text-2xl font-black text-teal-600 mt-1">
-                {stats.recoveryRate}%
-              </p>
-              <p className="text-[11px] text-slate-400">Successful handovers</p>
+              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+                <span className="text-xs font-semibold text-slate-400">Campus Recovery Rate</span>
+                <p className="text-2xl font-black text-teal-600 mt-1">
+                  {stats.recoveryRate}%
+                </p>
+                <p className="text-[11px] text-slate-400">Successful handovers</p>
+              </div>
             </div>
           </div>
-        </div>
+        )
       )}
 
       {/* Tab 2: Students */}
       {activeTab === 'students' && (
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-card">
+        isLoading ? (
+          <TableRowSkeleton columns={6} rows={5} />
+        ) : (
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 uppercase text-[10px] tracking-wider">
@@ -494,11 +502,15 @@ export default function CollegeAdminPage() {
             </table>
           </div>
         </div>
+        )
       )}
 
       {/* Tab 3: Reports */}
       {activeTab === 'reports' && (
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-card">
+        isLoading ? (
+          <TableRowSkeleton columns={6} rows={5} />
+        ) : (
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 uppercase text-[10px] tracking-wider">
@@ -536,11 +548,15 @@ export default function CollegeAdminPage() {
             </table>
           </div>
         </div>
+        )
       )}
 
       {/* Tab 4: Claims */}
       {activeTab === 'claims' && (
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-card">
+        isLoading ? (
+          <TableRowSkeleton columns={5} rows={5} />
+        ) : (
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 uppercase text-[10px] tracking-wider">
@@ -585,6 +601,7 @@ export default function CollegeAdminPage() {
             </table>
           </div>
         </div>
+        )
       )}
 
       {/* Tab 5: Campuses & Locations */}

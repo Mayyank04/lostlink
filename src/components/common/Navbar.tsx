@@ -10,7 +10,7 @@ import { RoleSwitcher } from '@/components/common/RoleSwitcher';
 import { NotificationService, MessageService } from '@/lib/services/api';
 import {
   Compass,
-  Sparkles,
+  Target,
   ShieldCheck,
   MessageSquare,
   Bell,
@@ -51,7 +51,7 @@ export const Navbar: React.FC = () => {
   const navLinks = [
     { label: 'Discover', href: '/discover', icon: Compass },
     { label: 'Colleges', href: '/colleges', icon: School },
-    { label: 'Matches', href: '/matches', icon: Sparkles },
+    { label: 'Matches', href: '/matches', icon: Target },
     { label: 'Claims', href: '/claims', icon: ShieldCheck },
     { label: 'Messages', href: '/messages', icon: MessageSquare, badge: unreadMessages },
     { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -99,7 +99,7 @@ export const Navbar: React.FC = () => {
         {/* Left: Brand & College Switcher */}
         <div className="flex items-center gap-4">
           <Link href="/" className="flex items-center gap-2.5 focus:outline-none">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-brandTeal-800 via-brandTeal-600 to-brandBlue-600 flex items-center justify-center text-white shadow-sm font-black text-lg tracking-tight">
+            <div className="w-9 h-9 rounded-xl bg-brandTeal-700 flex items-center justify-center text-white shadow-xs font-black text-lg tracking-tight">
               L
             </div>
             <div>

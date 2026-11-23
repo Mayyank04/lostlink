@@ -13,11 +13,12 @@ import { StatusBadge } from '@/components/common/StatusBadge';
 import { MatchScore } from '@/components/matching/MatchScore';
 import { EmptyState } from '@/components/common/EmptyState';
 import { Button } from '@/components/ui/Button';
+import { DashboardStatsSkeleton, TableRowSkeleton } from '@/components/common/LoadingSkeleton';
 import { formatDate } from '@/lib/utils';
 import {
   PlusCircle,
   FileText,
-  Sparkles,
+  Target,
   ShieldCheck,
   CheckCircle2,
   Clock,
@@ -91,7 +92,7 @@ export default function StudentDashboardPage() {
       {/* Personalized Greeting & Profile Header */}
       <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-card flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-brandTeal-700 to-brandBlue-600 text-white flex items-center justify-center font-black text-2xl shadow-md overflow-hidden">
+          <div className="w-16 h-16 rounded-2xl bg-brandTeal-700 text-white flex items-center justify-center font-black text-2xl shadow-sm overflow-hidden">
             {user?.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
@@ -137,36 +138,40 @@ export default function StudentDashboardPage() {
       </div>
 
       {/* Dynamic Counter Metrics from Active Data Source */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <StatCard
-          title="My Lost Reports"
-          value={lostCount}
-          subtitle="Currently active"
-          icon={FileText}
-          variant="amber"
-        />
-        <StatCard
-          title="Items I Found"
-          value={foundCount}
-          subtitle="In safe custody"
-          icon={ShieldCheck}
-          variant="teal"
-        />
-        <StatCard
-          title="Potential Matches"
-          value={suggestedMatches.length}
-          subtitle="Algorithmic radar"
-          icon={Sparkles}
-          variant="blue"
-        />
-        <StatCard
-          title="Returned to Me"
-          value={returnedCount}
-          subtitle="Safe handovers"
-          icon={CheckCircle2}
-          variant="emerald"
-        />
-      </div>
+      {isLoading ? (
+        <DashboardStatsSkeleton />
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <StatCard
+            title="My Lost Reports"
+            value={lostCount}
+            subtitle="Currently active"
+            icon={FileText}
+            variant="amber"
+          />
+          <StatCard
+            title="Items I Found"
+            value={foundCount}
+            subtitle="In safe custody"
+            icon={ShieldCheck}
+            variant="teal"
+          />
+          <StatCard
+            title="Potential Matches"
+            value={suggestedMatches.length}
+            subtitle="Algorithmic radar"
+            icon={Target}
+            variant="blue"
+          />
+          <StatCard
+            title="Returned to Me"
+            value={returnedCount}
+            subtitle="Safe handovers"
+            icon={CheckCircle2}
+            variant="emerald"
+          />
+        </div>
+      )}
 
       {/* Grid: Suggested Matches & Pending Claims */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -174,7 +179,7 @@ export default function StudentDashboardPage() {
         <div className="lg:col-span-7 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-brandTeal-600" />
+              <Target className="w-4 h-4 text-brandTeal-600" />
               <h2 className="text-base font-bold text-slate-900 dark:text-white">
                 Suggested Matches for You
               </h2>
@@ -285,7 +290,9 @@ export default function StudentDashboardPage() {
           </Link>
         </div>
 
-        {myReports.length > 0 ? (
+        {isLoading ? (
+          <TableRowSkeleton columns={7} rows={4} />
+        ) : myReports.length > 0 ? (
           <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-subtle">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">

@@ -53,7 +53,7 @@ export const StatCard: React.FC<StatCardProps> = ({
   return (
     <div
       className={cn(
-        'rounded-2xl border p-5 bg-white dark:bg-slate-900 transition-all hover:shadow-card',
+        'rounded-xl border p-5 bg-white dark:bg-slate-900 transition-all hover:shadow-sm',
         variantStyles.border
       )}
     >
@@ -61,7 +61,7 @@ export const StatCard: React.FC<StatCardProps> = ({
         <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
           {title}
         </p>
-        <div className={cn('p-2.5 rounded-xl', variantStyles.iconBg)}>
+        <div className={cn('p-2.5 rounded-lg', variantStyles.iconBg)}>
           <Icon className="w-5 h-5" />
         </div>
       </div>

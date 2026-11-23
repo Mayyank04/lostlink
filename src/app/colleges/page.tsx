@@ -12,7 +12,6 @@ import {
   X,
   School,
   MapPin,
-  Sparkles,
   Building2,
   ChevronLeft,
   ChevronRight,
@@ -211,7 +210,7 @@ function CollegesPageContent() {
         {/* Top Header Banner */}
         <div className="text-center space-y-2 py-4">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-brandTeal-100 dark:bg-brandTeal-950 text-brandTeal-800 dark:text-brandTeal-300 border border-brandTeal-300 dark:border-brandTeal-800 shadow-xs mb-2">
-            <Sparkles className="w-3.5 h-3.5" />
+            <Building2 className="w-3.5 h-3.5" />
             Global University Federation
           </div>
           <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight">
@@ -224,7 +223,7 @@ function CollegesPageContent() {
 
         {/* Registration Flow Banner */}
         {flow === 'register' && (
-          <div className="rounded-2xl bg-gradient-to-r from-brandTeal-600 to-blue-600 p-4 text-white shadow-md flex items-center justify-between">
+          <div className="rounded-2xl bg-slate-900 border border-slate-800 p-4 text-white shadow-sm flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center font-bold">
                 <School className="w-5 h-5 text-white" />
@@ -456,7 +455,7 @@ function CollegesPageContent() {
         )}
 
         {/* "Can't find your college?" Section */}
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-gradient-to-r from-slate-900 to-slate-800 text-white p-6 shadow-card flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="rounded-2xl border border-slate-800 bg-slate-900 text-white p-6 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <HelpCircle className="w-4 h-4 text-brandTeal-400" />

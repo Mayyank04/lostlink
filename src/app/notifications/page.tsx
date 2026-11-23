@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/common/EmptyState';
 import {
   Bell,
-  Sparkles,
+  Target,
   ShieldCheck,
   CheckCircle2,
   Clock,
@@ -61,7 +61,7 @@ export default function NotificationsPage() {
   const getIcon = (type: string) => {
     switch (type) {
       case 'match_found':
-        return <Sparkles className="w-4 h-4 text-brandTeal-600" />;
+        return <Target className="w-4 h-4 text-brandTeal-600" />;
       case 'claim_received':
         return <Clock className="w-4 h-4 text-blue-600" />;
       case 'claim_approved':

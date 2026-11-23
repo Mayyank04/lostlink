@@ -14,6 +14,7 @@ import {
   ArrowUpRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { DashboardStatsSkeleton } from '@/components/common/LoadingSkeleton';
 
 interface OverviewSectionProps {
   overviewData: any;
@@ -30,8 +31,9 @@ export function OverviewSection({
 }: OverviewSectionProps) {
   if (isLoading && !overviewData) {
     return (
-      <div className="p-8 text-center text-slate-400 animate-pulse">
-        Loading real-time platform metrics...
+      <div className="space-y-6">
+        <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 text-white animate-pulse h-28" />
+        <DashboardStatsSkeleton />
       </div>
     );
   }
@@ -107,11 +109,11 @@ export function OverviewSection({
   return (
     <div className="space-y-6">
       {/* Top Banner / Actions */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 rounded-2xl bg-gradient-to-r from-purple-900 to-indigo-900 text-white shadow-card">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 rounded-2xl bg-slate-900 border border-slate-800 text-white shadow-sm">
         <div>
           <h2 className="text-lg font-black tracking-tight">Super Admin Command Center</h2>
-          <p className="text-xs text-purple-200 mt-1">
-            Real-time PostgreSQL telemetry, multi-institution federation & RBAC governance.
+          <p className="text-xs text-slate-400 mt-1">
+            Real-time PostgreSQL telemetry, multi-institution federation and RBAC governance.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -119,7 +121,7 @@ export function OverviewSection({
             size="sm"
             variant="outline"
             onClick={onRefresh}
-            className="text-white border-purple-400/40 hover:bg-purple-800/50 text-xs"
+            className="text-white border-slate-700 hover:bg-slate-800 text-xs rounded-lg"
           >
             Refresh Telemetry
           </Button>
@@ -127,7 +129,7 @@ export function OverviewSection({
             size="sm"
             variant="primary"
             onClick={() => onNavigateSection('colleges')}
-            className="bg-white text-purple-900 hover:bg-purple-50 text-xs font-bold"
+            className="bg-brandTeal-600 hover:bg-brandTeal-700 text-white text-xs font-bold rounded-lg"
           >
             + Onboard College
           </Button>

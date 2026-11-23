@@ -22,7 +22,7 @@ import {
   Lock,
   ShieldCheck,
   FileText,
-  Sparkles,
+  Target,
   Info,
 } from 'lucide-react';
 
@@ -180,7 +180,7 @@ export const MultiStepReportForm: React.FC<MultiStepReportFormProps> = ({ report
 
         {potentialMatchesCount > 0 && (
           <div className="p-4 rounded-2xl bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800 text-left flex items-start gap-3">
-            <Sparkles className="w-5 h-5 text-brandTeal-600 shrink-0 mt-0.5" />
+            <Target className="w-5 h-5 text-brandTeal-600 shrink-0 mt-0.5" />
             <div>
               <p className="text-xs font-bold text-brandTeal-900 dark:text-brandTeal-200">
                 {potentialMatchesCount} Potential Match{potentialMatchesCount > 1 ? 'es' : ''} Detected!
