@@ -7,11 +7,23 @@ describe('PostgreSQL Database & Prisma Constraints', () => {
   let testCampusId: string;
 
   beforeAll(async () => {
-    // Ensure we query a seeded college that has active campuses
-    const college = await prisma.college.findFirst({
-      where: { campuses: { some: {} } },
+    // Ensure we query a permanent seeded college that has active campuses
+    let college = await prisma.college.findUnique({
+      where: { id: 'college-apex' },
       include: { campuses: true },
     });
+    if (!college) {
+      college = await prisma.college.findFirst({
+        where: { slug: 'apex-university', campuses: { some: {} } },
+        include: { campuses: true },
+      });
+    }
+    if (!college) {
+      college = await prisma.college.findFirst({
+        where: { campuses: { some: {} } },
+        include: { campuses: true },
+      });
+    }
     expect(college).toBeDefined();
     testCollegeId = college!.id;
     testCampusId = college!.campuses[0].id;

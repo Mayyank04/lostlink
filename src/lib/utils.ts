@@ -116,3 +116,6 @@ export function generateReferenceNumber(prefix: 'LL' | 'FD' | 'CLM'): string {
   return `${prefix}-${year}-${random}`;
 }
 
+export { generateSlug } from './utils/slug';
+
+

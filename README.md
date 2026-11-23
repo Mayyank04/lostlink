@@ -4,15 +4,15 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue?logo=typescript)
 ![Docker](https://img.shields.io/badge/Docker-Multi--Stage-2496ED?logo=docker)
 ![Kubernetes](https://img.shields.io/badge/Kubernetes-K3s%20%2F%20k3d-326CE5?logo=kubernetes)
-![Architecture](https://img.shields.io/badge/Architecture-Hybrid--Cloud%20Edge-success?logo=wireguard)
+![Architecture](https://img.shields.io/badge/Architecture-Clean%20Modular%20%26%20Scalable-success?logo=wireguard)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql)
-![Vitest](https://img.shields.io/badge/Tests-81%20Passing-success?logo=vitest)
+![Vitest](https://img.shields.io/badge/Tests-179%20Passing%20%2F%2019%20Suites-success?logo=vitest)
 ![Super Admin](https://img.shields.io/badge/Super%20Admin-15%20Modules-purple?logo=shield)
-![Hosting](https://img.shields.io/badge/Public%20Hosting-%240.00%2Fmo%20Free-success?logo=cloudflare)
+![Design Standard](https://img.shields.io/badge/UI%20Standard-Anti--AI--Slop%20Design%20System-emerald?logo=figma)
 
 > **Tagline:** "Lost something? Let's find it together."  
-> **Course / Academic Module:** Cloud Computing Module IV PBL Project  
-> **Architecture:** Hybrid-Cloud Distributed Architecture (Public Cloud K3s + Multi-College Federation + Super Admin Command Center)
+> **Architecture:** Clean, Modular, Scalable Multi-Tenant Architecture (Repositories, Services, Zod Config, Typed Errors, and K3s Infrastructure)  
+> **Key Docs:** [ARCHITECTURE.md](ARCHITECTURE.md) | [ARCHITECTURE_AUDIT.md](ARCHITECTURE_AUDIT.md) | [DEAD_CODE_AUDIT.md](DEAD_CODE_AUDIT.md) | [DESIGN.md](DESIGN.md) | [Documentation Suite](docs/)
 
 ---
 

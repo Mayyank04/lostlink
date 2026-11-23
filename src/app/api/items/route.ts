@@ -1,11 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { prisma } from '@/lib/db';
-import { getCurrentUser } from '@/lib/auth/session';
-import { requireAuth, requireCollegeMembership, errorResponse } from '@/lib/auth/tenant';
-import { triggerMatchingEngineForItem } from '@/lib/matching/matchEngine';
-import { enqueueMatchingJob } from '@/lib/hybrid/queue';
-import { encryptEvidence } from '@/lib/crypto/evidenceEncryption';
+import { requireAuth, errorResponse } from '@/lib/auth/tenant';
+import { itemService } from '@/server/services/item.service';
 import { ItemReportType, ItemStatus } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
@@ -61,46 +57,16 @@ export async function GET(req: Request) {
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '20', 10)));
     const skip = (page - 1) * limit;
 
-    const whereClause: any = {
-      isArchived: false,
-    };
-
-    if (type) whereClause.type = type;
-    if (collegeId) whereClause.collegeId = collegeId;
-    if (campusId) whereClause.campusId = campusId;
-    if (category && category !== 'All' && category !== 'all') whereClause.category = category;
-    if (statusParam && statusParam !== 'ALL') {
-      whereClause.status = statusParam as ItemStatus;
-    } else if (!statusParam) {
-      whereClause.status = { not: ItemStatus.CLOSED };
-    }
-
-    if (search) {
-      whereClause.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-        { brand: { contains: search, mode: 'insensitive' } },
-        { color: { contains: search, mode: 'insensitive' } },
-        { locationBuilding: { contains: search, mode: 'insensitive' } },
-      ];
-    }
-
-    const [total, items] = await Promise.all([
-      prisma.item.count({ where: whereClause }),
-      prisma.item.findMany({
-        where: whereClause,
-        include: {
-          college: { select: { id: true, name: true, slug: true } },
-          campus: { select: { id: true, name: true, code: true } },
-          reporter: { select: { id: true, name: true } },
-          images: { select: { id: true, url: true, visibility: true } },
-          _count: { select: { claims: true, lostMatches: true, foundMatches: true } },
-        },
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: limit,
-      }),
-    ]);
+    const { items, total } = await itemService.getItems({
+      type: type || undefined,
+      collegeId: collegeId || undefined,
+      campusId: campusId || undefined,
+      category: category || undefined,
+      status: (statusParam as any) || undefined,
+      search: search || undefined,
+      skip,
+      limit,
+    });
 
     const formatted = items.map((item) => ({
       id: item.id,
@@ -158,89 +124,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const data = result.data;
-
-    requireCollegeMembership(user, data.collegeId);
-
-    // Fallback campus if not provided
-    let campusId = data.campusId;
-    if (!campusId) {
-      const defaultCampus = await prisma.campus.findFirst({
-        where: { collegeId: data.collegeId },
-      });
-      campusId = defaultCampus?.id || '';
-    }
-
-    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-    const prefix = data.type === 'LOST' ? 'LL' : 'FD';
-    const reportNumber = `${prefix}-${new Date().getFullYear()}-${randomSuffix}`;
-
-    const createdItem = await prisma.$transaction(async (tx) => {
-      const item = await tx.item.create({
-        data: {
-          reportNumber,
-          type: data.type === 'LOST' ? ItemReportType.LOST : ItemReportType.FOUND,
-          name: data.title,
-          category: data.category,
-          brand: data.brand || null,
-          color: data.color || 'Unspecified',
-          description: data.description,
-          occurredAt: new Date(data.dateIncident),
-          collegeId: data.collegeId,
-          campusId: campusId!,
-          locationId: data.locationId || null,
-          locationBuilding: data.locationDescription,
-          depositedWithOffice: data.depositedWithOffice,
-          reporterId: user.id,
-          status: ItemStatus.OPEN,
-        },
-      });
-
-      if (data.images && data.images.length > 0) {
-        await tx.itemImage.createMany({
-          data: data.images.map((img, idx) => ({
-            itemId: item.id,
-            objectKey: `uploads/${item.id}-${idx}`,
-            url: img.url,
-            visibility: 'PUBLIC',
-          })),
-        });
-      }
-
-      if (data.privateEvidence && data.privateEvidence.length > 0) {
-        await tx.privateItemEvidence.create({
-          data: {
-            itemId: item.id,
-            encryptedEvidence: encryptEvidence(data.privateEvidence),
-          },
-        });
-      }
-
-      await tx.auditLog.create({
-        data: {
-          actorId: user.id,
-          collegeId: data.collegeId,
-          action: 'CREATE_REPORT',
-          resourceType: 'ITEM',
-          resourceId: item.id,
-          metadata: JSON.stringify({
-            reportNumber,
-            type: data.type,
-            hasEvidence: (data.privateEvidence?.length || 0) > 0,
-          }),
-        },
-      });
-
-      return item;
-    });
-
-    triggerMatchingEngineForItem(createdItem.id).catch((err) =>
-      console.error('Match engine execution failed:', err)
-    );
-
-    enqueueMatchingJob(createdItem.id).catch((err) =>
-      console.error('[HybridQueue] Failed to enqueue matching job:', err)
-    );
+    const createdItem = await itemService.createReport(user, result.data);
 
     return NextResponse.json(
       {
