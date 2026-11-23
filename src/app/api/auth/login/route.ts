@@ -68,6 +68,11 @@ export async function POST(req: Request) {
     const { token, expiresAt } = await createSession(user.id);
     await setSessionCookie(token, expiresAt);
 
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    }).catch(() => {});
+
     await prisma.auditLog.create({
       data: {
         actorId: user.id,

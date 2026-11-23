@@ -80,10 +80,220 @@ async function main() {
       country: 'United States',
       primaryColor: '#0F172A',
       status: CollegeStatus.ACTIVE,
+      domainVerificationStatus: 'VERIFIED',
     },
   });
 
-  console.log('🏛️  Seeded 3 Colleges.');
+  // Greater Noida Regional Cluster (Gautam Buddha Nagar, Uttar Pradesh, India)
+  const iilmUniversity = await prisma.college.create({
+    data: {
+      id: 'college-iilm',
+      name: 'IILM University',
+      shortName: 'IILM',
+      slug: 'iilm-university',
+      emailDomains: ['iilm.edu'],
+      logoUrl: 'https://illustrations.popsy.co/teal/presentation.svg',
+      city: 'Greater Noida',
+      state: 'Uttar Pradesh',
+      country: 'India',
+      primaryColor: '#800000',
+      status: CollegeStatus.ACTIVE,
+      domainVerificationStatus: 'VERIFIED',
+      institutionType: 'Private University',
+      website: 'https://iilm.edu',
+      address: '16 Knowledge Park II, Greater Noida, Gautam Buddha Nagar, Uttar Pradesh 201306',
+      contactEmail: 'admissions.gn@iilm.edu',
+      contactPhone: '+91-120-232-0000',
+      domainMetadata: 'Verified via official university domain registry (iilm.edu) and campus IT policy',
+    },
+  });
+
+  const galgotiasUniversity = await prisma.college.create({
+    data: {
+      id: 'college-galgotias',
+      name: 'Galgotias University',
+      shortName: 'Galgotias',
+      slug: 'galgotias-university',
+      emailDomains: ['galgotiasuniversity.edu.in'],
+      logoUrl: 'https://illustrations.popsy.co/blue/work-from-home.svg',
+      city: 'Greater Noida',
+      state: 'Uttar Pradesh',
+      country: 'India',
+      primaryColor: '#003366',
+      status: CollegeStatus.ACTIVE,
+      domainVerificationStatus: 'VERIFIED',
+      institutionType: 'Private University',
+      website: 'https://www.galgotiasuniversity.edu.in',
+      address: 'Plot No. 2, Sector 17-A, Yamuna Expressway, Greater Noida, Gautam Buddha Nagar, UP 203201',
+      contactEmail: 'admissions@galgotiasuniversity.edu.in',
+      contactPhone: '+91-120-437-0000',
+      domainMetadata: 'Verified via institutional student portal and domain registry',
+    },
+  });
+
+  const shardaUniversity = await prisma.college.create({
+    data: {
+      id: 'college-sharda',
+      name: 'Sharda University',
+      shortName: 'Sharda',
+      slug: 'sharda-university',
+      emailDomains: ['sharda.ac.in', 'ug.sharda.ac.in', 'pg.sharda.ac.in'],
+      logoUrl: 'https://illustrations.popsy.co/amber/student.svg',
+      city: 'Greater Noida',
+      state: 'Uttar Pradesh',
+      country: 'India',
+      primaryColor: '#B22222',
+      status: CollegeStatus.ACTIVE,
+      domainVerificationStatus: 'VERIFIED',
+      institutionType: 'Private University',
+      website: 'https://www.sharda.ac.in',
+      address: 'Plot No. 32-34, Knowledge Park III, Greater Noida, Gautam Buddha Nagar, UP 201310',
+      contactEmail: 'admission@sharda.ac.in',
+      contactPhone: '+91-120-457-0000',
+      domainMetadata: 'Verified official domain registry including constituent Sharda School of Business Studies',
+    },
+  });
+
+  const bennettUniversity = await prisma.college.create({
+    data: {
+      id: 'college-bennett',
+      name: 'Bennett University',
+      shortName: 'Bennett',
+      slug: 'bennett-university',
+      emailDomains: ['bennett.edu.in'],
+      logoUrl: 'https://illustrations.popsy.co/teal/presentation.svg',
+      city: 'Greater Noida',
+      state: 'Uttar Pradesh',
+      country: 'India',
+      primaryColor: '#002B49',
+      status: CollegeStatus.ACTIVE,
+      domainVerificationStatus: 'VERIFIED',
+      institutionType: 'Private University',
+      website: 'https://www.bennett.edu.in',
+      address: 'Plot Nos 8-11, TechZone II, Greater Noida, Gautam Buddha Nagar, UP 201310',
+      contactEmail: 'info@bennett.edu.in',
+      contactPhone: '+91-120-719-9300',
+      domainMetadata: 'Verified via Times Group Bennett University IT infrastructure',
+    },
+  });
+
+  const niuUniversity = await prisma.college.create({
+    data: {
+      id: 'college-niu',
+      name: 'Noida International University',
+      shortName: 'NIU',
+      slug: 'niu',
+      emailDomains: ['niu.edu.in'],
+      logoUrl: 'https://illustrations.popsy.co/blue/work-from-home.svg',
+      city: 'Greater Noida',
+      state: 'Uttar Pradesh',
+      country: 'India',
+      primaryColor: '#1A365D',
+      status: CollegeStatus.ACTIVE,
+      domainVerificationStatus: 'VERIFIED',
+      institutionType: 'Private University',
+      website: 'https://niu.edu.in',
+      address: 'Plot 1, Sector 17-A, Yamuna Expressway, Greater Noida, Gautam Buddha Nagar, UP 201308',
+      contactEmail: 'info@niu.edu.in',
+      contactPhone: '+91-120-486-2200',
+      domainMetadata: 'Verified official domain registry for NIU students and faculty',
+    },
+  });
+
+  const gbuUniversity = await prisma.college.create({
+    data: {
+      id: 'college-gbu',
+      name: 'Gautam Buddha University',
+      shortName: 'GBU',
+      slug: 'gbu',
+      emailDomains: ['gbu.ac.in'],
+      logoUrl: 'https://illustrations.popsy.co/amber/student.svg',
+      city: 'Greater Noida',
+      state: 'Uttar Pradesh',
+      country: 'India',
+      primaryColor: '#7A1C1C',
+      status: CollegeStatus.ACTIVE,
+      domainVerificationStatus: 'VERIFIED',
+      institutionType: 'State University',
+      website: 'https://www.gbu.ac.in',
+      address: 'Yamuna Expressway, Greater Noida, Gautam Buddha Nagar, UP 201312',
+      contactEmail: 'admissions@gbu.ac.in',
+      contactPhone: '+91-120-234-4200',
+      domainMetadata: 'Verified via Uttar Pradesh State University official domain registry',
+    },
+  });
+
+  const glBajajCollege = await prisma.college.create({
+    data: {
+      id: 'college-gl-bajaj',
+      name: 'G.L. Bajaj Institute of Technology and Management',
+      shortName: 'GL Bajaj',
+      slug: 'gl-bajaj',
+      emailDomains: ['glbitm.ac.in', 'glbitm.org'],
+      logoUrl: 'https://illustrations.popsy.co/teal/presentation.svg',
+      city: 'Greater Noida',
+      state: 'Uttar Pradesh',
+      country: 'India',
+      primaryColor: '#1E3A8A',
+      status: CollegeStatus.ACTIVE,
+      domainVerificationStatus: 'VERIFIED',
+      institutionType: 'Engineering & Management Institute',
+      website: 'https://www.glbitm.org',
+      address: 'Plot No. 2, Knowledge Park III, Greater Noida, Gautam Buddha Nagar, UP 201306',
+      contactEmail: 'info@glbitm.org',
+      contactPhone: '+91-120-232-3818',
+      domainMetadata: 'Verified via AKTU affiliated institute student email portal',
+    },
+  });
+
+  const gniotCollege = await prisma.college.create({
+    data: {
+      id: 'college-gniot',
+      name: 'Greater Noida Institute of Technology',
+      shortName: 'GNIOT',
+      slug: 'gniot',
+      emailDomains: ['gniot.net.in', 'gniotgroup.edu.in'],
+      logoUrl: 'https://illustrations.popsy.co/blue/work-from-home.svg',
+      city: 'Greater Noida',
+      state: 'Uttar Pradesh',
+      country: 'India',
+      primaryColor: '#831843',
+      status: CollegeStatus.ACTIVE,
+      domainVerificationStatus: 'VERIFIED',
+      institutionType: 'Technical Institute',
+      website: 'https://www.gniotgroup.edu.in',
+      address: 'Plot No. 7, Knowledge Park II, Greater Noida, Gautam Buddha Nagar, UP 201306',
+      contactEmail: 'admission@gniot.net.in',
+      contactPhone: '+91-120-232-0210',
+      domainMetadata: 'Verified via GNIOT Group educational domain registry',
+    },
+  });
+
+  // Pending Verification College for security testing
+  const pendingCollege = await prisma.college.create({
+    data: {
+      id: 'college-pending-test',
+      name: 'Greater Noida Polytechnic Institute',
+      shortName: 'GNPI',
+      slug: 'gnpi-pending',
+      emailDomains: ['gnpi-pending.edu.in'],
+      pendingDomains: ['gnpi-pending.edu.in'],
+      logoUrl: null,
+      city: 'Greater Noida',
+      state: 'Uttar Pradesh',
+      country: 'India',
+      primaryColor: '#475569',
+      status: CollegeStatus.ACTIVE,
+      domainVerificationStatus: 'PENDING_VERIFICATION',
+      institutionType: 'Polytechnic Institute',
+      website: 'https://gnpi-pending.edu.in',
+      address: 'Plot 44, Ecotech III, Greater Noida, UP 201306',
+      contactEmail: 'contact@gnpi-pending.edu.in',
+      domainMetadata: 'Domain approval pending DNS TXT proof verification',
+    },
+  });
+
+  console.log('🏛️  Seeded 12 Colleges (Including Greater Noida Regional Cluster & Verification Sandbox).');
 
   // 3. Seed Campuses
   const apexNorth = await prisma.campus.create({
@@ -138,9 +348,97 @@ async function main() {
     },
   });
 
-  console.log('📍 Seeded Campuses.');
+  // Greater Noida Campuses
+  const iilmMainCampus = await prisma.campus.create({
+    data: {
+      id: 'iilm-main',
+      collegeId: iilmUniversity.id,
+      name: 'Greater Noida Campus (Knowledge Park II)',
+      code: 'IILM-GN',
+      addressLabel: '16 Knowledge Park II, Greater Noida, UP 201306',
+      lostFoundDeskRoom: 'Main Security Block / Administration Reception',
+      operatingHours: 'Mon - Sat: 8:30 AM - 5:30 PM',
+      contactEmail: 'lostfound@iilm.edu',
+    },
+  });
+
+  const shardaMainCampus = await prisma.campus.create({
+    data: {
+      id: 'sharda-main',
+      collegeId: shardaUniversity.id,
+      name: 'Sharda University Main Campus',
+      code: 'SHARDA-MAIN',
+      addressLabel: 'Plot No. 32-34, Knowledge Park III, Greater Noida, UP 201310',
+      lostFoundDeskRoom: 'Central Library Helpdesk / Security Gate 1',
+      operatingHours: 'Mon - Sat: 9:00 AM - 6:00 PM',
+      contactEmail: 'lostfound@sharda.ac.in',
+    },
+  });
+
+  const galgotiasMainCampus = await prisma.campus.create({
+    data: {
+      id: 'galgotias-main',
+      collegeId: galgotiasUniversity.id,
+      name: 'Galgotias Main Campus',
+      code: 'GU-MAIN',
+      addressLabel: 'Plot No. 2, Sector 17-A, Yamuna Expressway, Greater Noida, UP 203201',
+      lostFoundDeskRoom: 'Block A Proctor Office & Lost Property Desk',
+      operatingHours: 'Mon - Sat: 9:00 AM - 5:00 PM',
+      contactEmail: 'lostandfound@galgotiasuniversity.edu.in',
+    },
+  });
+
+  console.log('📍 Seeded Campuses (Including Greater Noida Hubs).');
 
   // 4. Seed Campus Locations
+  await prisma.campusLocation.create({
+    data: {
+      id: 'iilm-lib',
+      campusId: iilmMainCampus.id,
+      name: 'IILM Central Library',
+      building: 'Academic Block A',
+      floorLabel: 'Ground Floor Reading Hall',
+      locationType: 'library',
+      hasDesk: true,
+    },
+  });
+
+  await prisma.campusLocation.create({
+    data: {
+      id: 'iilm-cafeteria',
+      campusId: iilmMainCampus.id,
+      name: 'IILM Student Center & Cafeteria',
+      building: 'Student Amenities Block',
+      floorLabel: 'Food Court Area',
+      locationType: 'canteen',
+      hasDesk: false,
+    },
+  });
+
+  // Retain Sharda School of Business Studies under Sharda University
+  await prisma.campusLocation.create({
+    data: {
+      id: 'sharda-ssbs',
+      campusId: shardaMainCampus.id,
+      name: 'Sharda School of Business Studies (SSBS)',
+      building: 'Block 7 - Business School Complex',
+      floorLabel: 'Dean Office & Management Commons',
+      locationType: 'building',
+      hasDesk: true,
+    },
+  });
+
+  await prisma.campusLocation.create({
+    data: {
+      id: 'sharda-lib',
+      campusId: shardaMainCampus.id,
+      name: 'Swami Vivekananda Central Library',
+      building: 'Central Library Tower',
+      floorLabel: '2nd Floor Reference Section',
+      locationType: 'library',
+      hasDesk: true,
+    },
+  });
   const locTuringLib = await prisma.campusLocation.create({
     data: {
       id: 'apx-n-lib',
@@ -270,6 +568,47 @@ async function main() {
     },
   });
 
+  // Seed verified IILM University student
+  const aarav = await prisma.user.create({
+    data: {
+      id: 'user-aarav-iilm',
+      name: 'Aarav Sharma',
+      email: 'aarav.sharma@iilm.edu',
+      emailVerified: new Date(),
+      passwordHash: defaultPasswordHash,
+      image: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&auto=format&fit=crop&q=80',
+      role: UserRole.STUDENT,
+      status: UserStatus.ACTIVE,
+      department: 'Computer Science & Engineering',
+      gradYear: 2026,
+      phone: '+91 98765 43210',
+    },
+  });
+
+  // Check for environment-configured demo student (non-production only)
+  let demoUserRecord = null;
+  if (process.env.DEMO_STUDENT_EMAIL && process.env.DEMO_STUDENT_PASSWORD) {
+    const demoEmail = process.env.DEMO_STUDENT_EMAIL.trim().toLowerCase();
+    const demoPasswordHash = await argon2.hash(process.env.DEMO_STUDENT_PASSWORD, {
+      type: argon2.argon2id,
+    });
+    demoUserRecord = await prisma.user.create({
+      data: {
+        id: 'user-demo-student',
+        name: 'Demo Student',
+        email: demoEmail,
+        emailVerified: new Date(),
+        passwordHash: demoPasswordHash,
+        role: UserRole.STUDENT,
+        status: UserStatus.ACTIVE,
+        isDemoUser: true,
+        department: 'Information Technology',
+        gradYear: 2027,
+      },
+    });
+    console.log(`👤 Seeded environment-configured Demo Student (${demoEmail}).`);
+  }
+
   console.log('👤 Seeded Users (Argon2id secured, password: Password123!).');
 
   // 6. Seed Memberships
@@ -303,6 +642,24 @@ async function main() {
         verificationMethod: 'PLATFORM_GOVERNANCE',
         status: MembershipStatus.VERIFIED,
       },
+      {
+        userId: aarav.id,
+        collegeId: iilmUniversity.id,
+        studentIdentifier: 'IILM-2026-8801',
+        verificationMethod: 'EMAIL_DOMAIN',
+        status: MembershipStatus.VERIFIED,
+      },
+      ...(demoUserRecord
+        ? [
+            {
+              userId: demoUserRecord.id,
+              collegeId: iilmUniversity.id,
+              studentIdentifier: 'DEMO-2027-0001',
+              verificationMethod: 'EMAIL_DOMAIN',
+              status: MembershipStatus.VERIFIED,
+            },
+          ]
+        : []),
     ],
   });
 

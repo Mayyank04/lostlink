@@ -28,7 +28,7 @@ interface AuthContextType {
   switchCollege: (collegeId: string) => void;
   switchCampus: (campusId: string) => void;
   loginAs: (email: string) => boolean;
-  login: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string; user?: any }>;
   register: (data: {
     name: string;
     email: string;
@@ -71,8 +71,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             avatarUrl: u.image || undefined,
             role: (u.role === 'PLATFORM_ADMIN'
               ? 'platform_admin'
-              : u.role === 'COLLEGE_ADMIN' || u.role === 'COLLEGE_MODERATOR'
+              : u.role === 'COLLEGE_ADMIN'
               ? 'college_admin'
+              : u.role === 'COLLEGE_MODERATOR'
+              ? 'college_moderator'
               : 'student') as UserRole,
             collegeId: foundCollege.id,
             campusId: foundCollege.campuses[0]?.id,
@@ -226,12 +228,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return false;
   };
 
-  const login = async (email: string, password?: string): Promise<{ success: boolean; error?: string }> => {
+  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string; user?: any }> => {
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password: password || 'Password123!' }),
+        body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
       });
 
       const data = await res.json();
@@ -240,7 +242,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       await checkServerSession();
-      return { success: true };
+      return { success: true, user: data.user };
     } catch {
       return { success: false, error: 'Network error connecting to backend authentication server' };
     }

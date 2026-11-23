@@ -48,7 +48,17 @@ async function bootstrapSuperAdmin() {
     process.exit(1);
   }
 
-  // 2. Check if user is already a platform administrator (Idempotent)
+  // 2. Security Validation: Email must be verified before platform administration privileges are granted
+  const hasForceVerify = args.includes('--force-verify');
+  if (!user.emailVerified && !hasForceVerify) {
+    console.error(`❌ ERROR: Target user email "${targetEmail}" is NOT yet verified.`);
+    console.error(`   Security Policy: Platform administrators must have a verified email address.`);
+    console.error(`   Please complete OTP email verification at /auth/verify-college first,`);
+    console.error(`   or pass --force-verify for break-glass emergency bootstrap authorization.\n`);
+    process.exit(1);
+  }
+
+  // 3. Check if user is already a platform administrator (Idempotent)
   if (user.role === UserRole.PLATFORM_ADMIN) {
     console.log(`ℹ️  User "${user.name}" (${user.email}) is ALREADY authorized as PLATFORM_ADMIN.`);
     console.log(`   Status: ${user.status}`);
@@ -57,7 +67,7 @@ async function bootstrapSuperAdmin() {
     process.exit(0);
   }
 
-  // 3. Promote user to PLATFORM_ADMIN and record immutable audit event
+  // 4. Promote user to PLATFORM_ADMIN and record immutable audit event
   const previousRole = user.role;
   const updatedUser = await prisma.$transaction(async (tx) => {
     const updated = await tx.user.update({
@@ -65,6 +75,7 @@ async function bootstrapSuperAdmin() {
       data: {
         role: UserRole.PLATFORM_ADMIN,
         status: UserStatus.ACTIVE,
+        ...(user.emailVerified ? {} : { emailVerified: new Date() }),
       },
     });
 

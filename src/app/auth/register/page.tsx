@@ -9,7 +9,23 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { SearchableCollegeSelector } from '@/components/colleges/SearchableCollegeSelector';
 import { CollegeSearchResult } from '@/components/colleges/CollegeCard';
-import { ShieldCheck, CheckCircle2, AlertCircle } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, AlertCircle, Eye, EyeOff, XCircle } from 'lucide-react';
+
+const PUBLIC_EMAIL_DOMAINS = new Set([
+  'gmail.com',
+  'yahoo.com',
+  'outlook.com',
+  'hotmail.com',
+  'live.com',
+  'icloud.com',
+  'protonmail.com',
+  'proton.me',
+  'mail.com',
+  'aol.com',
+  'zoho.com',
+  'gmx.com',
+  'yandex.com',
+]);
 
 function RegisterForm() {
   const router = useRouter();
@@ -26,11 +42,13 @@ function RegisterForm() {
   const [selectedCollegeObj, setSelectedCollegeObj] = useState<CollegeSearchResult | null>(null);
   const [studentId, setStudentId] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   // Dynamically load active colleges from database and resolve explicit query college ID
   useEffect(() => {
-    // 1. If explicit college ID in query, resolve exact college regardless of catalog size or pagination
     if (queryCollegeId) {
       fetch(`/api/colleges/search?id=${encodeURIComponent(queryCollegeId)}`)
         .then((res) => (res.ok ? res.json() : null))
@@ -48,7 +66,6 @@ function RegisterForm() {
         .catch(() => {});
     }
 
-    // 2. Load active college directory for search selector
     fetch('/api/colleges/search?limit=50')
       .then((res) => res.json())
       .then((data) => {
@@ -72,18 +89,61 @@ function RegisterForm() {
   }, [queryCollegeId]);
 
   const selectedCollege = selectedCollegeObj || colleges.find((c) => c.id === collegeId);
-  const emailDomain = email.includes('@') ? email.split('@')[1]?.toLowerCase() : '';
-  const isDomainAllowed =
+  const emailDomain = email.includes('@') ? email.split('@')[1]?.toLowerCase().trim() : '';
+
+  const isPublicProvider = emailDomain ? PUBLIC_EMAIL_DOMAINS.has(emailDomain) : false;
+
+  const isDomainAllowed = Boolean(
     emailDomain &&
-    selectedCollege &&
-    (selectedCollege.emailDomains?.some((d: string) => d.toLowerCase() === emailDomain) ||
-      selectedCollege.domain?.toLowerCase() === emailDomain);
+      !isPublicProvider &&
+      selectedCollege &&
+      (selectedCollege.emailDomains?.some((d: string) => d.toLowerCase().trim() === emailDomain) ||
+        selectedCollege.domain?.toLowerCase().trim() === emailDomain)
+  );
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !email.trim()) return;
+    if (!name.trim()) {
+      error('Input Error', 'Please enter your full name.');
+      return;
+    }
+    if (!email.trim()) {
+      error('Input Error', 'Please enter your institutional email address.');
+      return;
+    }
     if (!collegeId) {
-      error('Selection Required', 'Please select your enrolled institution before registering.');
+      error('Selection Required', 'Please select your enrolled university before registering.');
+      return;
+    }
+
+    if (isPublicProvider) {
+      error(
+        'Public Email Disallowed',
+        'Personal email addresses (e.g. Gmail, Yahoo, Outlook) cannot be used. Please register with your official university email.'
+      );
+      return;
+    }
+
+    if (!isDomainAllowed) {
+      error(
+        'Domain Mismatch',
+        `Your email domain "@${emailDomain}" is not authorized for ${selectedCollege?.name || 'the selected university'}.`
+      );
+      return;
+    }
+
+    if (!password) {
+      error('Password Required', 'Please create a secure password.');
+      return;
+    }
+
+    if (password.length < 8) {
+      error('Password Too Short', 'Password must be at least 8 characters in length.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      error('Password Mismatch', 'The passwords entered do not match. Please verify and retype.');
       return;
     }
 
@@ -91,8 +151,8 @@ function RegisterForm() {
     try {
       const res = await register({
         name: name.trim(),
-        email: email.trim(),
-        password: password || 'Password123!',
+        email: email.trim().toLowerCase(),
+        password,
         collegeId,
         studentId: studentId.trim() || undefined,
       });
@@ -100,12 +160,14 @@ function RegisterForm() {
       if (res.success) {
         switchCollege(collegeId);
         success(
-          'Account Registered',
-          'Verification link sent to your institutional email. Redirecting to verification status...'
+          'Verification Code Dispatched',
+          'A 6-digit confirmation code was dispatched to your institutional inbox. Please enter the OTP to activate your account.'
         );
-        router.push(`/auth/verify-college?email=${encodeURIComponent(email)}&college=${collegeId}`);
+        router.push(
+          `/auth/verify-college?email=${encodeURIComponent(email.trim().toLowerCase())}&college=${encodeURIComponent(collegeId)}`
+        );
       } else {
-        error('Registration Failed', res.error || 'Could not create account');
+        error('Registration Failed', res.error || 'Could not complete registration.');
       }
     } catch {
       error('Network Error', 'Could not communicate with registration server.');
@@ -136,6 +198,7 @@ function RegisterForm() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
+            autoComplete="name"
           />
 
           {/* Searchable College Selector */}
@@ -149,30 +212,43 @@ function RegisterForm() {
             />
             {selectedCollege && (
               <p className="text-[10px] text-brandTeal-600 dark:text-brandTeal-400 mt-1 font-mono">
-                Approved domains: @{selectedCollege.emailDomains?.join(', @') || selectedCollege.domain}
+                Approved institutional domain(s): @
+                {selectedCollege.emailDomains?.join(', @') || selectedCollege.domain}
               </p>
             )}
           </div>
 
           <div>
             <Input
-              label="Institutional Email (@edu) *"
+              label="Official Institutional Email *"
               type="email"
               placeholder={`student@${selectedCollege?.domain || selectedCollege?.emailDomains?.[0] || 'institution.edu'}`}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              autoComplete="email"
             />
+
+            {/* Real-time Domain Verification Status Indicator */}
             {emailDomain && (
-              <div className="mt-1 flex items-center gap-1.5 text-[11px]">
-                {isDomainAllowed ? (
-                  <span className="text-emerald-600 font-semibold flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Domain verified for instant access
-                  </span>
+              <div className="mt-1.5 p-2 rounded-lg text-[11px] leading-tight">
+                {isPublicProvider ? (
+                  <div className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 font-semibold bg-rose-50 dark:bg-rose-950/40 p-2 rounded-lg border border-rose-200 dark:border-rose-900">
+                    <XCircle className="w-4 h-4 shrink-0" />
+                    <span>Personal email (@{emailDomain}) rejected. Please use your official university email.</span>
+                  </div>
+                ) : isDomainAllowed ? (
+                  <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-semibold bg-emerald-50 dark:bg-emerald-950/40 p-2 rounded-lg border border-emerald-200 dark:border-emerald-900">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span>Approved institutional domain (@{emailDomain}) verified for {selectedCollege?.name}</span>
+                  </div>
                 ) : (
-                  <span className="text-amber-600 font-medium flex items-center gap-1">
-                    <AlertCircle className="w-3.5 h-3.5" /> Domain requires manual desk verification
-                  </span>
+                  <div className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400 font-medium bg-amber-50 dark:bg-amber-950/40 p-2 rounded-lg border border-amber-200 dark:border-amber-900">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>
+                      Domain @{emailDomain} does not match {selectedCollege?.name || 'the selected university'}.
+                    </span>
+                  </div>
                 )}
               </div>
             )}
@@ -180,24 +256,70 @@ function RegisterForm() {
 
           <Input
             label="Student Identification Number (Optional)"
-            placeholder="e.g. APX-2027-4921"
+            placeholder="e.g. APX-2027-4921 or IILM-2026-8801"
             value={studentId}
             onChange={(e) => setStudentId(e.target.value)}
           />
 
-          <Input
-            label="Create Secure Password *"
-            type="password"
-            placeholder="At least 8 characters"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
+          {/* Password with toggle */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+              Create Password * (min. 8 characters)
+            </label>
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                placeholder="At least 8 characters"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="new-password"
+                className="flex h-10 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 pr-10 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brandTeal-600 focus:border-transparent transition-colors"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+
+          {/* Confirm Password with toggle */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+              Confirm Password *
+            </label>
+            <div className="relative">
+              <input
+                type={showConfirmPassword ? 'text' : 'password'}
+                placeholder="Repeat password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                autoComplete="new-password"
+                className="flex h-10 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 pr-10 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brandTeal-600 focus:border-transparent transition-colors"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+              >
+                {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+            {password && confirmPassword && password !== confirmPassword && (
+              <p className="text-[11px] text-rose-600 font-medium">Passwords do not match.</p>
+            )}
+          </div>
 
           <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 flex items-start gap-2">
             <ShieldCheck className="w-4 h-4 text-brandTeal-600 shrink-0 mt-0.5" />
             <span>
-              Registration details are kept private under student privacy guidelines. Zero cross-institution tracking.
+              Cryptographic Argon2id password hashing and 6-digit email OTP verification safeguard your institutional identity.
             </span>
           </div>
 
@@ -207,8 +329,9 @@ function RegisterForm() {
             size="md"
             className="w-full text-xs font-bold bg-brandTeal-700 hover:bg-brandTeal-800"
             isLoading={isLoading}
+            disabled={!isDomainAllowed || isPublicProvider || (Boolean(password) && password !== confirmPassword)}
           >
-            Continue to Institutional Verification
+            Continue to Email Verification
           </Button>
         </form>
 

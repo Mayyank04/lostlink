@@ -7,9 +7,25 @@ import { checkRateLimit, getClientIp } from '@/lib/auth/rateLimit';
 import { createEmailVerificationOTP } from '@/lib/auth/emailVerification';
 import { MembershipStatus, UserRole } from '@prisma/client';
 
+const PUBLIC_EMAIL_PROVIDERS = new Set([
+  'gmail.com',
+  'yahoo.com',
+  'outlook.com',
+  'hotmail.com',
+  'live.com',
+  'icloud.com',
+  'protonmail.com',
+  'proton.me',
+  'mail.com',
+  'aol.com',
+  'zoho.com',
+  'gmx.com',
+  'yandex.com',
+]);
+
 const registerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Valid institutional email required').toLowerCase(),
+  email: z.string().email('Valid institutional email required').toLowerCase().trim(),
   password: z.string().min(8, 'Password must be at least 8 characters'),
   collegeId: z.string().min(1, 'College selection is required'),
   studentId: z.string().optional(),
@@ -36,6 +52,17 @@ export async function POST(req: Request) {
     }
 
     const { name, email, password, collegeId, studentId } = result.data;
+    const emailDomain = email.split('@')[1]?.toLowerCase().trim();
+
+    if (!emailDomain || PUBLIC_EMAIL_PROVIDERS.has(emailDomain)) {
+      return NextResponse.json(
+        {
+          error:
+            'Personal email addresses (e.g. Gmail, Yahoo, Outlook) are not permitted. Please register using your official university-issued email.',
+        },
+        { status: 400 }
+      );
+    }
 
     const college = await prisma.college.findUnique({
       where: { id: collegeId },
@@ -55,9 +82,30 @@ export async function POST(req: Request) {
       );
     }
 
-    const emailDomain = email.split('@')[1];
-    const isDomainAllowed = college.emailDomains.some((d) => d.toLowerCase() === emailDomain);
-    // Strict Verification: Email domain match is required, but ownership requires OTP verification
+    if (college.domainVerificationStatus !== 'VERIFIED') {
+      return NextResponse.json(
+        {
+          error:
+            'The domain for this institution is pending official verification. Student registration is not permitted until institutional verification is complete.',
+        },
+        { status: 400 }
+      );
+    }
+
+    const isDomainAllowed = college.emailDomains.some(
+      (d) => d.toLowerCase().trim() === emailDomain
+    );
+
+    if (!isDomainAllowed) {
+      return NextResponse.json(
+        {
+          error: `Email domain "@${emailDomain}" is not authorized for ${college.name}. Allowed institutional domain(s): ${college.emailDomains.map((d) => '@' + d).join(', ')}`,
+        },
+        { status: 400 }
+      );
+    }
+
+    // Strict Verification: Membership begins as PENDING, activated only upon OTP verification
     const membershipStatus = MembershipStatus.PENDING;
 
     const existingUser = await prisma.user.findUnique({
@@ -91,7 +139,7 @@ export async function POST(req: Request) {
           collegeId: college.id,
           status: membershipStatus,
           studentIdentifier: studentId || null,
-          verificationMethod: isDomainAllowed ? 'EMAIL_OTP' : 'ID_CARD',
+          verificationMethod: 'EMAIL_OTP',
           verifiedAt: null,
         },
       });
@@ -103,7 +151,7 @@ export async function POST(req: Request) {
           action: 'USER_REGISTERED',
           resourceType: 'USER',
           resourceId: user.id,
-          metadata: JSON.stringify({ emailDomain, membershipStatus }),
+          metadata: JSON.stringify({ emailDomain, membershipStatus: 'PENDING' }),
         },
       });
 
@@ -118,7 +166,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json(
       {
-        message: 'Account created successfully',
+        message: 'Account created successfully. Verification OTP dispatched to your institutional email.',
         user: {
           id: newUser.id,
           name: newUser.name,

@@ -53,11 +53,12 @@ export const RoleSwitcher: React.FC = () => {
           <div className="space-y-1.5">
             {MOCK_USERS.map((u) => {
               const isSelected = u.id === user?.id;
-              const roleBadgeColor = {
+              const roleBadgeColor: Record<string, string> = {
                 student: 'bg-emerald-100 text-emerald-800',
+                college_moderator: 'bg-indigo-100 text-indigo-800',
                 college_admin: 'bg-blue-100 text-blue-800',
                 platform_admin: 'bg-purple-100 text-purple-800',
-              }[u.role];
+              };
 
               return (
                 <button
@@ -81,7 +82,7 @@ export const RoleSwitcher: React.FC = () => {
                       <p className="text-[10px] text-slate-500 truncate max-w-[120px]">{u.email}</p>
                     </div>
                   </div>
-                  <span className={`text-[9px] uppercase font-bold px-1.5 py-0.5 rounded ${roleBadgeColor}`}>
+                  <span className={`text-[9px] uppercase font-bold px-1.5 py-0.5 rounded ${roleBadgeColor[u.role] || 'bg-slate-100 text-slate-800'}`}>
                     {u.role.replace('_', ' ')}
                   </span>
                 </button>

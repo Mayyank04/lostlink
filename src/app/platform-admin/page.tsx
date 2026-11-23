@@ -121,27 +121,41 @@ function PlatformAdminContent() {
   }
 
   if (role !== 'platform_admin') {
+    const returnDestination = role === 'college_admin' || role === 'college_moderator' ? '/college-admin' : '/dashboard';
+    const returnLabel = role === 'college_admin' || role === 'college_moderator' ? 'Return to College Administration' : 'Return to Student Dashboard';
+
     return (
-      <div className="container mx-auto px-4 py-16 max-w-lg text-center space-y-4">
-        <div className="w-16 h-16 mx-auto rounded-2xl bg-rose-100 text-rose-600 dark:bg-rose-950/60 flex items-center justify-center">
+      <div className="container mx-auto px-4 py-16 max-w-lg text-center space-y-5">
+        <div className="w-16 h-16 mx-auto rounded-2xl bg-rose-100 text-rose-600 dark:bg-rose-950/60 flex items-center justify-center shadow-sm">
           <ShieldAlert className="w-8 h-8" />
         </div>
-        <h1 className="text-xl font-black text-slate-900 dark:text-white">
-          Access Restricted: Super Administrator Only
-        </h1>
-        <p className="text-xs text-slate-500 leading-relaxed">
-          This command center requires the <code className="font-mono font-bold text-rose-600">PLATFORM_ADMIN</code> role.
-          If this is a local development instance, promote your account using:
-        </p>
-        <div className="p-3 rounded-xl bg-slate-900 text-slate-200 font-mono text-[11px] text-left">
-          npm run admin:bootstrap -- --email your.email@institution.edu
+        <div className="space-y-2">
+          <h1 className="text-xl font-black text-slate-900 dark:text-white">
+            Access Denied: Platform Administrator Only
+          </h1>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            You are currently authenticated as <strong className="text-slate-800 dark:text-slate-200">{user?.name || user?.email}</strong> with role{' '}
+            <code className="font-mono font-bold text-rose-600 uppercase">{role}</code>.
+            Institutional students and college staff are strictly isolated from platform-wide governance.
+          </p>
         </div>
+
+        <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 text-left text-xs space-y-2">
+          <p className="font-bold text-slate-700 dark:text-slate-300">Authorized Access Control Policy:</p>
+          <ul className="list-disc list-inside space-y-1 text-slate-500 text-[11px]">
+            <li>Students may access only their enrolled university dashboard and reports.</li>
+            <li>College administrators manage only their assigned institution.</li>
+            <li>Platform administrator privileges require explicit offline CLI authorization.</li>
+          </ul>
+        </div>
+
         <div className="pt-2">
           <Link
-            href="/dashboard"
-            className="inline-block px-4 py-2 rounded-xl text-xs font-bold bg-purple-600 text-white hover:bg-purple-700"
+            href={returnDestination}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-brandTeal-700 text-white hover:bg-brandTeal-800 transition-colors shadow-sm"
           >
-            Return to Dashboard
+            <span>{returnLabel}</span>
+            <ChevronRight className="w-4 h-4" />
           </Link>
         </div>
       </div>
