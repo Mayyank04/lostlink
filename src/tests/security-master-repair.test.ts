@@ -15,6 +15,7 @@ import {
   GET as getDomainVerificationHandler,
   POST as postDomainVerificationHandler,
 } from '../app/api/platform-admin/colleges/[id]/domain-verification/route';
+import { PATCH as patchUserStatusHandler } from '../app/api/platform-admin/users/[id]/status/route';
 import { PATCH as patchStudentMembershipHandler } from '../app/api/college-admin/students/[id]/route';
 import {
   createEmailVerificationOTP,
@@ -341,6 +342,24 @@ describe('LostLink 2.0 Master Security & Functionality Repair Test Suite', () =>
       const secondResult = await verifyEmailVerificationOTP(email, rawOtp, collegeA.id);
       expect(secondResult.success).toBe(false);
       expect(secondResult.error).toContain('already been used');
+    });
+
+    it('concurrent verification requests are handled atomically so exactly one succeeds and duplicates fail', async () => {
+      const email = `concurrent.test.${Date.now()}.${Math.floor(Math.random() * 1000)}@college-a.edu`;
+      const rawOtp = await createEmailVerificationOTP(email, collegeA.id, studentUserA.id);
+
+      // Fire 3 simultaneous verification attempts with the same valid OTP
+      const results = await Promise.all([
+        verifyEmailVerificationOTP(email, rawOtp, collegeA.id),
+        verifyEmailVerificationOTP(email, rawOtp, collegeA.id),
+        verifyEmailVerificationOTP(email, rawOtp, collegeA.id),
+      ]);
+
+      const successCount = results.filter((r) => r.success).length;
+      const failureCount = results.filter((r) => !r.success).length;
+
+      expect(successCount).toBe(1);
+      expect(failureCount).toBe(2);
     });
 
     it('rejects expired OTP challenge', async () => {
@@ -1002,6 +1021,41 @@ describe('LostLink 2.0 Master Security & Functionality Repair Test Suite', () =>
       } catch (e: any) {
         expect(e.statusCode).toBe(403);
       }
+    });
+
+    it('modifying user role or suspending user immediately purges active sessions', async () => {
+      const email = `role.change.${Date.now()}.${Math.floor(Math.random() * 1000)}@college-a.edu`;
+      const testUser = await prisma.user.create({
+        data: {
+          name: 'Role Change Test',
+          email,
+          passwordHash: await hashPassword('Pass123!'),
+          role: UserRole.STUDENT,
+          status: UserStatus.ACTIVE,
+        },
+      });
+
+      // Create session
+      await createSession(testUser.id);
+      let activeSessions = await prisma.session.findMany({ where: { userId: testUser.id } });
+      expect(activeSessions.length).toBe(1);
+
+      // Platform admin changes user's role to COLLEGE_ADMIN
+      const req = new Request(`http://localhost:3000/api/platform-admin/users/${testUser.id}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${platformAdminSessionToken}`,
+        },
+        body: JSON.stringify({ role: UserRole.COLLEGE_ADMIN }),
+      });
+
+      const res = await patchUserStatusHandler(req as any, { params: Promise.resolve({ id: testUser.id }) });
+      expect(res.status).toBe(200);
+
+      // Verify sessions purged
+      activeSessions = await prisma.session.findMany({ where: { userId: testUser.id } });
+      expect(activeSessions.length).toBe(0);
     });
   });
 });

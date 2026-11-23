@@ -11,16 +11,20 @@ const updateUserSchema = z.object({
   reason: z.string().optional(),
 });
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: { id: string } | Promise<{ id: string }> }
+) {
   try {
     const user = await requireAuth(req);
     requirePlatformAdmin(user);
+    const { id } = await Promise.resolve(params);
 
     const body = await req.json();
     const validated = updateUserSchema.parse(body);
 
     const targetUser = await prisma.user.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
     if (!targetUser) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -38,17 +42,22 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
     const updated = await prisma.$transaction(async (tx) => {
       const u = await tx.user.update({
-        where: { id: params.id },
+        where: { id },
         data: {
           status: validated.status !== undefined ? validated.status : undefined,
           role: validated.role !== undefined ? validated.role : undefined,
         },
       });
 
-      // Revoke sessions if requested or if account is suspended
-      if (validated.revokeSessions || validated.status === UserStatus.SUSPENDED) {
+      // Revoke sessions if requested, if account is suspended, or if role is modified
+      const shouldRevokeSessions =
+        Boolean(validated.revokeSessions) ||
+        validated.status === UserStatus.SUSPENDED ||
+        (validated.role !== undefined && validated.role !== targetUser.role);
+
+      if (shouldRevokeSessions) {
         await tx.session.deleteMany({
-          where: { userId: params.id },
+          where: { userId: id },
         });
       }
 
@@ -64,7 +73,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
             newStatus: validated.status,
             previousRole: targetUser.role,
             newRole: validated.role,
-            sessionsRevoked: validated.revokeSessions || validated.status === UserStatus.SUSPENDED,
+            sessionsRevoked: shouldRevokeSessions,
             reason: validated.reason || 'Super Admin action',
             timestamp: new Date().toISOString(),
           }),
