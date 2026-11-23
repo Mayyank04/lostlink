@@ -157,7 +157,7 @@ export async function getCurrentUser(req?: Request): Promise<AuthenticatedUser |
 
   try {
     const secret = getSecretKey();
-    const { payload } = await jwtVerify(token, secret);
+    const { payload } = await jwtVerify(token, secret, { algorithms: ['HS256'] });
     const sessionToken = (payload as any).sessionToken as string;
 
     if (!sessionToken) return null;

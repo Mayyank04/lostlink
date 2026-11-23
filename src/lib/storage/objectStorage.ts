@@ -195,7 +195,8 @@ export async function uploadFile({
     fs.mkdirSync(targetDir, { recursive: true });
   }
 
-  const filePath = path.join(targetDir, `${uniqueId}${ext}`);
+  const filenameOnDisk = isPrivate ? `${uniqueId}_${baseName}${ext}` : `${uniqueId}${ext}`;
+  const filePath = path.join(targetDir, filenameOnDisk);
   fs.writeFileSync(filePath, buffer);
 
   return {

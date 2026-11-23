@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { NotificationItem } from '@/types/notification';
 import { NotificationService } from '@/lib/services/api';
-import { timeAgo } from '@/lib/utils';
+import { timeAgo, sanitizeUrl } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/common/EmptyState';
 import {
@@ -219,7 +219,7 @@ export default function NotificationsPage() {
                 <div className="flex items-center gap-3 mt-3 pt-2 border-t border-slate-100 dark:border-slate-800/80">
                   {item.linkUrl && (
                     <Link
-                      href={item.linkUrl}
+                      href={sanitizeUrl(item.linkUrl)}
                       onClick={() => handleMarkAsRead(item.id)}
                       className="text-xs font-semibold text-brandTeal-700 dark:text-brandTeal-400 hover:underline"
                     >

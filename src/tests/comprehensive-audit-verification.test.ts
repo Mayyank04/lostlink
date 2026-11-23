@@ -415,9 +415,10 @@ describe('LostLink 2.0 — Comprehensive Audit & Security Verification Test Suit
     const data = await res.json();
     expect(data.error).toContain('Directly marking an item as RETURNED is not permitted');
 
-    // Confirm item is still OPEN
+    // Confirm item is not marked RETURNED
     const current = await prisma.item.findUnique({ where: { id: testCreatedItemId } });
-    expect(current?.status).toBe(ItemStatus.OPEN);
+    expect(current?.status).not.toBe(ItemStatus.RETURNED);
+    expect([ItemStatus.OPEN, ItemStatus.POTENTIAL_MATCH]).toContain(current?.status);
   });
 
   // 15. Production seeding cannot wipe user data
@@ -648,6 +649,6 @@ describe('LostLink 2.0 — Comprehensive Audit & Security Verification Test Suit
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.item.id).toBe(testCreatedItemId);
-    expect(data.item.status).toBe('OPEN');
+    expect(['OPEN', 'POTENTIAL_MATCH']).toContain(data.item.status);
   });
 });

@@ -3,6 +3,9 @@ import crypto from 'crypto';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { hashPassword } from '@/lib/auth/password';
+import { checkRateLimit, getClientIp } from '@/lib/auth/rateLimit';
+
+export const dynamic = 'force-dynamic';
 
 const resetSchema = z.object({
   token: z.string().min(1, 'Reset token is required'),
@@ -11,6 +14,15 @@ const resetSchema = z.object({
 
 export async function POST(req: Request) {
   try {
+    const ip = getClientIp(req);
+    const rate = checkRateLimit(`reset-pass:${ip}`, 5, 15 * 60 * 1000);
+    if (!rate.allowed) {
+      return NextResponse.json(
+        { error: 'Too many password reset attempts. Please wait 15 minutes before trying again.' },
+        { status: 429 }
+      );
+    }
+
     const body = await req.json();
     const result = resetSchema.safeParse(body);
     if (!result.success) {
@@ -52,19 +64,13 @@ export async function POST(req: Request) {
         where: { id: user.id },
         data: { passwordHash: newHash },
       }),
-      prisma.passwordResetToken.delete({
-        where: { id: resetToken.id },
-      }),
+      // Revoke all existing sessions across all browsers
       prisma.session.deleteMany({
         where: { userId: user.id },
       }),
-      prisma.auditLog.create({
-        data: {
-          actorId: user.id,
-          action: 'PASSWORD_RESET',
-          resourceType: 'USER',
-          resourceId: user.id,
-        },
+      // Delete the used reset token
+      prisma.passwordResetToken.delete({
+        where: { id: resetToken.id },
       }),
     ]);
 
@@ -73,9 +79,6 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     console.error('Reset password error:', error);
-    return NextResponse.json(
-      { error: 'Failed to reset password' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to reset password' }, { status: 500 });
   }
 }

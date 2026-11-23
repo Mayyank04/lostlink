@@ -44,11 +44,15 @@ export async function createEmailVerificationOTP(
 
   // 4. Dispatch via email provider or log to console in development/testing
   const provider = process.env.EMAIL_PROVIDER || 'test';
-  if (provider === 'test' || process.env.NODE_ENV !== 'production') {
+  if (process.env.NODE_ENV !== 'production' && (provider === 'test' || !process.env.SMTP_HOST)) {
     console.log(
       `\x1b[36m[EMAIL_VERIFICATION]\x1b[0m Verification code for \x1b[1m${normalizedEmail}\x1b[0m${
         collegeId ? ` (College: ${collegeId})` : ''
       }: \x1b[32m\x1b[1m${rawOtp}\x1b[0m (Expires in ${OTP_EXPIRY_MINUTES}m)`
+    );
+  } else if (process.env.NODE_ENV === 'production') {
+    console.log(
+      `[EMAIL_VERIFICATION] OTP challenge dispatched for ${normalizedEmail} (Expires in ${OTP_EXPIRY_MINUTES}m)`
     );
   }
 
@@ -156,11 +160,21 @@ export async function verifyEmailVerificationOTP(
     };
   }
 
-  // 7. Atomically mark token as consumed (prevents replay / concurrent reuse)
-  await prisma.verificationToken.update({
-    where: { id: activeRecord.id },
+  // 7. Atomically mark token as consumed (prevents race conditions and duplicate concurrent verification)
+  const updateResult = await prisma.verificationToken.updateMany({
+    where: {
+      id: activeRecord.id,
+      consumedAt: null,
+    },
     data: { consumedAt: new Date() },
-  }).catch(() => {});
+  });
+
+  if (updateResult.count === 0) {
+    return {
+      success: false,
+      error: 'This verification code has already been used. Please request a new code.',
+    };
+  }
 
   return { success: true, tokenRecord: activeRecord };
 }

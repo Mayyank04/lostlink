@@ -116,6 +116,25 @@ export function generateReferenceNumber(prefix: 'LL' | 'FD' | 'CLM'): string {
   return `${prefix}-${year}-${random}`;
 }
 
+/**
+ * Sanitizes URLs to prevent javascript: or data: pseudo-protocol XSS injection in href links
+ */
+export function sanitizeUrl(url?: string | null): string {
+  if (!url || typeof url !== 'string') return '#';
+  const trimmed = url.trim();
+  // Safe relative paths starting with a single /
+  if (trimmed.startsWith('/') && !trimmed.startsWith('//')) {
+    return trimmed;
+  }
+  // Safe absolute protocols: http, https, mailto, tel
+  if (/^(https?:|mailto:|tel:)/i.test(trimmed)) {
+    return trimmed;
+  }
+  // Fallback to safe anchor
+  return '#';
+}
+
 export { generateSlug } from './utils/slug';
+
 
 
