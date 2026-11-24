@@ -39,7 +39,7 @@ import { useRouter } from 'next/navigation';
 
 export default function StudentDashboardPage() {
   const router = useRouter();
-  const { user, activeCollege, activeCampus, logout } = useAuth();
+  const { user, activeCollege, activeCampus, logout, serverAuthenticated, isDemoMode } = useAuth();
   const { success, error } = useToast();
 
   const [myReports, setMyReports] = useState<ItemReport[]>([]);
@@ -47,6 +47,16 @@ export default function StudentDashboardPage() {
   const [pendingClaims, setPendingClaims] = useState<ClaimRequest[]>([]);
   const [returnedCount, setReturnedCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Unauthenticated users visiting /dashboard are redirected to /login
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!user && !serverAuthenticated && !isDemoMode) {
+        router.push('/login');
+      }
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [user, serverAuthenticated, isDemoMode, router]);
 
   const loadDashboardData = async () => {
     setIsLoading(true);

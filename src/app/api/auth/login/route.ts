@@ -4,10 +4,14 @@ import { prisma } from '@/lib/db';
 import { verifyPassword } from '@/lib/auth/password';
 import { createSession, setSessionCookie } from '@/lib/auth/session';
 import { checkRateLimit, getClientIp } from '@/lib/auth/rateLimit';
+import { POST as postOtpLogin } from '@/app/api/auth/login-otp/route';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address').toLowerCase(),
-  password: z.string().min(1, 'Password is required'),
+  password: z.string().optional(),
+  otp: z.string().optional(),
+  otpCode: z.string().optional(),
+  collegeId: z.string().optional(),
 });
 
 export async function POST(req: Request) {
@@ -22,10 +26,25 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
+
+    // If OTP is provided, execute Student OTP login flow
+    if (body?.otp || body?.otpCode) {
+      const otpRequest = new Request(req.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: body.email,
+          otp: body.otp || body.otpCode,
+          collegeId: body.collegeId,
+        }),
+      });
+      return postOtpLogin(otpRequest);
+    }
+
     const result = loginSchema.safeParse(body);
-    if (!result.success) {
+    if (!result.success || !result.data.password) {
       return NextResponse.json(
-        { error: result.error.issues[0]?.message || 'Invalid credentials' },
+        { error: result.success ? 'Password is required' : (result.error.issues[0]?.message || 'Invalid credentials') },
         { status: 400 }
       );
     }

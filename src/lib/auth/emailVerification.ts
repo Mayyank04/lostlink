@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { prisma } from '@/lib/db';
+import { isSandboxModeEnabled, isSandboxOtpValid, SANDBOX_OTP } from './sandbox';
 
 const OTP_EXPIRY_MINUTES = 15;
 const MAX_VERIFICATION_ATTEMPTS = 5;
@@ -67,7 +68,7 @@ export async function verifyEmailVerificationOTP(
   email: string,
   candidateOtp: string,
   collegeId?: string
-): Promise<{ success: boolean; error?: string; tokenRecord?: any }> {
+): Promise<{ success: boolean; error?: string; tokenRecord?: any; isSandbox?: boolean }> {
   const normalizedEmail = email.trim().toLowerCase();
   const trimmedOtp = (candidateOtp || '').trim();
 
@@ -93,6 +94,60 @@ export async function verifyEmailVerificationOTP(
     where: whereClause,
     orderBy: { createdAt: 'desc' },
   });
+
+  // Sandbox OTP verification check (permitted non-production environments only)
+  if (isSandboxModeEnabled() && isSandboxOtpValid(trimmedOtp)) {
+    if (activeRecord) {
+      if (activeRecord.consumedAt) {
+        return {
+          success: false,
+          error: 'This verification code has already been used. Please request a new code.',
+        };
+      }
+      if (activeRecord.expiresAt <= new Date()) {
+        await prisma.verificationToken.delete({ where: { id: activeRecord.id } }).catch(() => {});
+        return {
+          success: false,
+          error: 'Verification code has expired. Please request a new code.',
+        };
+      }
+      if (activeRecord.attempts >= activeRecord.maxAttempts) {
+        return {
+          success: false,
+          error: 'Maximum verification attempts exceeded. For security, this challenge has been locked. Please request a new code.',
+        };
+      }
+      if (collegeId && activeRecord.collegeId && activeRecord.collegeId !== collegeId) {
+        return {
+          success: false,
+          error: 'Verification code does not belong to the selected institution.',
+        };
+      }
+
+      const updateResult = await prisma.verificationToken.updateMany({
+        where: { id: activeRecord.id, consumedAt: null },
+        data: { consumedAt: new Date() },
+      });
+
+      if (updateResult.count === 0) {
+        return {
+          success: false,
+          error: 'This verification code has already been used. Please request a new code.',
+        };
+      }
+    }
+
+    return {
+      success: true,
+      isSandbox: true,
+      tokenRecord: {
+        identifier: normalizedEmail,
+        collegeId: collegeId || activeRecord?.collegeId || null,
+        consumedAt: new Date(),
+        isSandbox: true,
+      },
+    };
+  }
 
   if (!activeRecord) {
     return {

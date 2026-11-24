@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { checkRateLimit, getClientIp } from '@/lib/auth/rateLimit';
 import { createEmailVerificationOTP } from '@/lib/auth/emailVerification';
+import { isSandboxModeEnabled, SANDBOX_OTP } from '@/lib/auth/sandbox';
 
 const RESEND_COOLDOWN_MS = 60 * 1000; // 60-second cooldown between resends
 
@@ -74,10 +75,14 @@ export async function POST(req: NextRequest) {
 
     // Invalidate previous challenges and issue fresh bound OTP
     await createEmailVerificationOTP(email, effectiveCollegeId, user.id);
+    const sandbox = isSandboxModeEnabled();
 
     return NextResponse.json({
       success: true,
-      message: 'A fresh 6-digit verification code has been sent to your institutional email.',
+      sandboxMode: sandbox,
+      message: sandbox
+        ? `SANDBOX MODE ACTIVE — Use test verification OTP: ${SANDBOX_OTP}`
+        : 'A fresh 6-digit verification code has been sent to your institutional email.',
     });
   } catch (error) {
     console.error('Error resending verification OTP:', error);

@@ -20,6 +20,18 @@ function VerifyCollegeContent() {
   const [otpCode, setOtpCode] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [isResending, setIsResending] = useState(false);
+  const [sandboxEnabled, setSandboxEnabled] = useState(process.env.NEXT_PUBLIC_AUTH_SANDBOX_MODE === 'true');
+
+  React.useEffect(() => {
+    fetch('/api/auth/sandbox-status')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && typeof data.enabled === 'boolean') {
+          setSandboxEnabled(data.enabled);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const college = allColleges.find((c) => c.id === collegeId) || allColleges[0];
 
@@ -103,6 +115,17 @@ function VerifyCollegeContent() {
             <span className="text-slate-400 font-semibold uppercase text-[10px]">Institution:</span>
             <p className="font-bold text-slate-900 dark:text-white">{college.name}</p>
             {college.domain && <p className="text-[11px] text-slate-500">Domain: @{college.domain}</p>}
+          </div>
+        )}
+
+        {sandboxEnabled && (
+          <div className="rounded-xl border border-amber-300 dark:border-amber-700/60 bg-amber-50/80 dark:bg-amber-950/30 p-3 text-xs space-y-1">
+            <span className="font-bold text-amber-900 dark:text-amber-200 uppercase tracking-wider text-[11px] block">
+              SANDBOX MODE — TEST OTP: 123456
+            </span>
+            <p className="text-[11px] text-amber-800 dark:text-amber-300">
+              Submit code <code className="px-1 py-0.5 rounded bg-amber-200/60 dark:bg-amber-900/60 font-mono font-bold">123456</code> to verify locally without waiting for email.
+            </p>
           </div>
         )}
 

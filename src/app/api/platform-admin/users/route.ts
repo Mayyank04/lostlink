@@ -3,6 +3,8 @@ import { prisma } from '@/lib/db';
 import { requireAuth, requirePlatformAdmin, errorResponse } from '@/lib/auth/tenant';
 import { UserRole, UserStatus } from '@prisma/client';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: NextRequest) {
   try {
     const user = await requireAuth(req);

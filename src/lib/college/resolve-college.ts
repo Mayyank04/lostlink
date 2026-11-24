@@ -205,9 +205,12 @@ export async function resolveCollegeFromEmail(email: string): Promise<CollegeRes
   }
 
   // 2. Fallback to College.emailDomains array for backward compatibility
-  const legacyCollege = await prisma.college.findFirst({
+  // Prefer an ACTIVE and VERIFIED college first if multiple exist
+  let legacyCollege = await prisma.college.findFirst({
     where: {
       emailDomains: { has: domain },
+      status: CollegeStatus.ACTIVE,
+      domainVerificationStatus: 'VERIFIED',
     },
     include: {
       campuses: {
@@ -216,6 +219,21 @@ export async function resolveCollegeFromEmail(email: string): Promise<CollegeRes
       },
     },
   });
+
+  if (!legacyCollege) {
+    legacyCollege = await prisma.college.findFirst({
+      where: {
+        emailDomains: { has: domain },
+      },
+      include: {
+        campuses: {
+          take: 1,
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
 
   if (legacyCollege) {
     if (legacyCollege.status !== CollegeStatus.ACTIVE) {

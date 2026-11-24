@@ -29,6 +29,8 @@ interface AuthContextType {
   switchCampus: (campusId: string) => void;
   loginAs: (email: string) => boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string; user?: any; redirectTo?: string }>;
+  loginWithOtp: (email: string, otp: string) => Promise<{ success: boolean; error?: string; user?: any; redirectTo?: string }>;
+  sendOtp: (email: string) => Promise<{ success: boolean; error?: string; sandboxMode?: boolean; sandboxOtp?: string; college?: any }>;
   register: (data: {
     name: string;
     email: string;
@@ -254,6 +256,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const sendOtp = async (email: string) => {
+    try {
+      const res = await fetch('/api/auth/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        return { success: false, error: data.error || 'Failed to send verification code' };
+      }
+      return {
+        success: true,
+        sandboxMode: data.sandboxMode,
+        sandboxOtp: data.sandboxOtp,
+        college: data.college,
+      };
+    } catch {
+      return { success: false, error: 'Network error connecting to authentication server' };
+    }
+  };
+
+  const loginWithOtp = async (email: string, otp: string) => {
+    try {
+      const res = await fetch('/api/auth/login-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim().toLowerCase(), otp: otp.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        return { success: false, error: data.error || 'Verification failed' };
+      }
+      await checkServerSession();
+      return { success: true, user: data.user, redirectTo: data.redirectTo };
+    } catch {
+      return { success: false, error: 'Network error connecting to authentication server' };
+    }
+  };
+
   const register = async (data: {
     name: string;
     email: string;
@@ -313,6 +355,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         switchCampus,
         loginAs,
         login,
+        loginWithOtp,
+        sendOtp,
         register,
         logout,
         resetDemoData,
