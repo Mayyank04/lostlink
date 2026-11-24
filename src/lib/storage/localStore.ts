@@ -80,12 +80,6 @@ export function initStore(): void {
   if (!window.localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS)) {
     setItem(STORAGE_KEYS.NOTIFICATIONS, MOCK_NOTIFICATIONS);
   }
-  if (!window.localStorage.getItem(STORAGE_KEYS.ACTIVE_USER_ID)) {
-    setItem(STORAGE_KEYS.ACTIVE_USER_ID, 'user-maya');
-  }
-  if (!window.localStorage.getItem(STORAGE_KEYS.ACTIVE_COLLEGE_ID)) {
-    setItem(STORAGE_KEYS.ACTIVE_COLLEGE_ID, 'college-apex');
-  }
 }
 
 // Reset store to default demo fixtures
@@ -101,20 +95,27 @@ export function resetDemoStore(): void {
 }
 
 // Active User & College helpers
-export function getActiveUserId(): string {
-  return getItem<string>(STORAGE_KEYS.ACTIVE_USER_ID, 'user-maya');
+export function getActiveUserId(): string | null {
+  return getItem<string | null>(STORAGE_KEYS.ACTIVE_USER_ID, null);
 }
 
 export function setActiveUserId(id: string): void {
   setItem(STORAGE_KEYS.ACTIVE_USER_ID, id);
 }
 
-export function getActiveCollegeId(): string {
-  return getItem<string>(STORAGE_KEYS.ACTIVE_COLLEGE_ID, 'college-apex');
+export function getActiveCollegeId(): string | null {
+  return getItem<string | null>(STORAGE_KEYS.ACTIVE_COLLEGE_ID, null);
 }
 
 export function setActiveCollegeId(id: string): void {
   setItem(STORAGE_KEYS.ACTIVE_COLLEGE_ID, id);
+}
+
+export function clearActiveUserAndCollege(): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.removeItem(STORAGE_KEYS.ACTIVE_USER_ID);
+  window.localStorage.removeItem(STORAGE_KEYS.ACTIVE_COLLEGE_ID);
+  notifyListeners();
 }
 
 export function getUsers(): User[] {

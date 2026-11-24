@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { checkRateLimit, getClientIp } from '@/lib/auth/rateLimit';
 import { verifyEmailVerificationOTP } from '@/lib/auth/emailVerification';
 import { getCurrentUser } from '@/lib/auth/session';
+import { resolveCollegeFromEmail } from '@/lib/college/resolve-college';
 import { MembershipStatus } from '@prisma/client';
 
 const verifySchema = z
@@ -42,12 +43,31 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. Retrieve the original pending registration from the database
+    // 2. Authoritative Server-Side Institutional Domain Resolution
+    const resolution = await resolveCollegeFromEmail(email);
+    if (!resolution.success) {
+      return NextResponse.json(
+        { error: resolution.message, code: resolution.code },
+        { status: 400 }
+      );
+    }
+    const resolvedCollegeId = resolution.collegeId;
+
+    // Reject mismatched client-supplied collegeId that contradicts email resolution
+    if (collegeId && collegeId !== resolvedCollegeId) {
+      return NextResponse.json(
+        {
+          error: `Institutional mismatch: Email domain belongs to ${resolution.collegeName}. You cannot verify access to a different institution.`,
+        },
+        { status: 400 }
+      );
+    }
+
+    // 3. Retrieve the target user from the database
     const targetUser = await prisma.user.findUnique({
       where: { email },
       include: {
         memberships: {
-          where: collegeId ? { collegeId } : undefined,
           include: { college: true },
         },
       },
@@ -60,34 +80,38 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3. Verify that the user has an existing membership challenge for the requested college
-    const membership = targetUser.memberships[0];
-    if (!membership) {
-      return NextResponse.json(
-        { error: 'No pending registration found for the specified institution.' },
-        { status: 400 }
-      );
-    }
-
-    // 4. Authorization check: if session exists, caller must be target user or platform admin
+    // 4. Active session conflict check: caller must match email or be PLATFORM_ADMIN
     const sessionUser = await getCurrentUser(req);
-    if (sessionUser && sessionUser.email !== email && sessionUser.role !== 'PLATFORM_ADMIN') {
+    if (sessionUser && sessionUser.email.toLowerCase() !== email.toLowerCase() && sessionUser.role !== 'PLATFORM_ADMIN') {
       return NextResponse.json(
-        { error: 'You are not authorized to verify an email address belonging to another user.' },
+        {
+          error: `Active session conflict: You are authenticated as ${sessionUser.email}. You are not authorized to verify an email address belonging to another user. Please sign out before verifying ${email}.`,
+        },
         { status: 403 }
       );
     }
 
+    // 5. Locate or prepare membership for resolvedCollegeId
+    let membership = targetUser.memberships.find((m) => m.collegeId === resolvedCollegeId);
+    if (!membership && targetUser.memberships.length > 0) {
+      membership = targetUser.memberships[0];
+    }
+
     // If membership is already verified, return idempotent success
-    if (membership.status === MembershipStatus.VERIFIED && targetUser.emailVerified) {
+    if (membership && membership.status === MembershipStatus.VERIFIED && targetUser.emailVerified) {
       return NextResponse.json({
         success: true,
         message: 'Institutional membership is already active and verified.',
+        college: {
+          id: resolution.collegeId,
+          name: resolution.collegeName,
+          slug: resolution.slug,
+        },
       });
     }
 
-    // 5. Re-check the college status and approved domain list
-    const college = membership.college;
+    // 6. Re-check the resolved college status and approved domain list
+    const college = await prisma.college.findUnique({ where: { id: resolvedCollegeId } });
     if (!college || college.status !== 'ACTIVE') {
       return NextResponse.json(
         { error: 'The selected institution is currently inactive or suspended. Verification cannot proceed.' },
@@ -105,20 +129,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 6. Re-check email domain against college approved domain allowlist (case-insensitive, exact match)
-    const emailDomain = email.split('@')[1]?.toLowerCase().trim();
-    const isDomainAllowed = college.emailDomains.some((d) => d.toLowerCase().trim() === emailDomain);
-    if (!isDomainAllowed) {
-      return NextResponse.json(
-        {
-          error: `Email domain "@${emailDomain}" is not permitted for ${college.name}. Allowed domain(s): ${college.emailDomains.join(', ')}`,
-        },
-        { status: 400 }
-      );
-    }
-
-    // 7. Verify the cryptographic OTP bound to this email and college
-    const otpResult = await verifyEmailVerificationOTP(email, otpCode, collegeId);
+    // 7. Verify the cryptographic OTP bound to this email and resolved college
+    const otpResult = await verifyEmailVerificationOTP(email, otpCode, resolvedCollegeId);
     if (!otpResult.success) {
       return NextResponse.json(
         { error: otpResult.error || 'Invalid or expired verification code.' },
@@ -133,26 +145,40 @@ export async function POST(req: NextRequest) {
         data: { emailVerified: new Date() },
       });
 
-      await tx.collegeMembership.update({
-        where: { id: membership.id },
-        data: {
-          status: MembershipStatus.VERIFIED,
-          verifiedAt: new Date(),
-          verificationMethod: 'EMAIL_OTP',
-          verifiedBy: 'SYSTEM_OTP_VERIFICATION',
-        },
-      });
+      if (membership) {
+        await tx.collegeMembership.update({
+          where: { id: membership.id },
+          data: {
+            collegeId: resolvedCollegeId,
+            status: MembershipStatus.VERIFIED,
+            verifiedAt: new Date(),
+            verificationMethod: 'EMAIL_OTP',
+            verifiedBy: 'SYSTEM_OTP_VERIFICATION',
+          },
+        });
+      } else {
+        await tx.collegeMembership.create({
+          data: {
+            userId: targetUser.id,
+            collegeId: resolvedCollegeId,
+            status: MembershipStatus.VERIFIED,
+            verifiedAt: new Date(),
+            verificationMethod: 'EMAIL_OTP',
+            verifiedBy: 'SYSTEM_OTP_VERIFICATION',
+          },
+        });
+      }
 
       await tx.auditLog.create({
         data: {
           actorId: targetUser.id,
-          collegeId: college.id,
+          collegeId: resolvedCollegeId,
           action: 'MEMBERSHIP_VERIFIED',
           resourceType: 'COLLEGE_MEMBERSHIP',
-          resourceId: membership.id,
+          resourceId: membership?.id || targetUser.id,
           metadata: JSON.stringify({
             email,
-            collegeId: college.id,
+            collegeId: resolvedCollegeId,
             collegeName: college.name,
             method: 'EMAIL_OTP',
             timestamp: new Date().toISOString(),
@@ -164,6 +190,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       message: 'College membership successfully verified. Institutional access granted.',
+      college: {
+        id: college.id,
+        name: college.name,
+        slug: college.slug,
+      },
     });
   } catch (error) {
     console.error('Verify college error:', error);

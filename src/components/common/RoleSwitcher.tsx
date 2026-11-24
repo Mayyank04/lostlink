@@ -6,7 +6,8 @@ import { MOCK_USERS } from '@/data/mockData';
 import { ShieldAlert, UserCheck, RefreshCw, KeyRound } from 'lucide-react';
 
 export const RoleSwitcher: React.FC = () => {
-  const { user, switchUser, resetDemoData } = useAuth();
+  const { user, switchUser, resetDemoData, isDemoMode } = useAuth();
+  const isDemoAllowed = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
   const [isOpen, setIsOpen] = React.useState(false);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
 
@@ -19,6 +20,10 @@ export const RoleSwitcher: React.FC = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  if (!isDemoMode || !isDemoAllowed || !user) {
+    return null;
+  }
 
   return (
     <div className="relative inline-block" ref={dropdownRef}>

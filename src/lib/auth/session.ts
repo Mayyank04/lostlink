@@ -31,6 +31,7 @@ export interface SessionPayload {
   userId: string;
   email: string;
   role: UserRole;
+  isOnboarded?: boolean;
 }
 
 export interface AuthenticatedUser {
@@ -101,6 +102,7 @@ export async function createSession(userId: string): Promise<{ token: string; ex
     userId: dbSession.userId,
     email: dbSession.user.email,
     role: dbSession.user.role,
+    isOnboarded: Boolean(dbSession.user.isOnboarded),
   })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()

@@ -11,6 +11,7 @@ import {
   setActiveUserId,
   getActiveCollegeId,
   setActiveCollegeId,
+  clearActiveUserAndCollege,
   subscribeToStore,
   resetDemoStore,
 } from '@/lib/storage/localStore';
@@ -64,7 +65,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (data.user) {
           const u = data.user;
           const userCollegeMembership = u.memberships?.[0];
-          const foundCollege = collegesList.find((c) => c.id === userCollegeMembership?.collegeId) || MOCK_COLLEGES[0];
+          const membershipCollege = userCollegeMembership?.college;
+
+          let foundCollege: College;
+          if (membershipCollege) {
+            foundCollege = {
+              id: membershipCollege.id,
+              name: membershipCollege.name,
+              shortName: (membershipCollege as any).shortName || membershipCollege.name,
+              slug: membershipCollege.slug,
+              domain: (membershipCollege as any).domain || '',
+              logoUrl: membershipCollege.logoUrl,
+              city: membershipCollege.city || '',
+              state: membershipCollege.state || '',
+              country: 'India',
+              campuses: (membershipCollege as any).campuses || [
+                {
+                  id: `${membershipCollege.slug}-main`,
+                  name: `${membershipCollege.name} Main Campus`,
+                  code: membershipCollege.slug,
+                  city: membershipCollege.city || '',
+                  address: '',
+                  lostFoundOffice: {
+                    room: 'Campus Security & Lost Property Desk',
+                    contactEmail: `lostfound@${membershipCollege.slug}.edu`,
+                    operatingHours: '9:00 AM – 5:00 PM',
+                  },
+                  locations: [],
+                },
+              ],
+            };
+          } else {
+            foundCollege =
+              collegesList.find((c) => c.id === userCollegeMembership?.collegeId) ||
+              collegesList[0] ||
+              MOCK_COLLEGES[0];
+          }
 
           setCurrentUser({
             id: u.id,
@@ -108,14 +144,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsInitialized(true);
 
     const updateFromStorage = () => {
+      if (!isDemoAllowed) {
+        return;
+      }
       const uId = getActiveUserId();
       const cId = getActiveCollegeId();
+      if (!uId) {
+        return;
+      }
 
-      const foundUser = MOCK_USERS.find((u) => u.id === uId) || MOCK_USERS[0];
+      const foundUser = MOCK_USERS.find((u) => u.id === uId);
+      if (!foundUser) return;
       const foundCollege = collegesList.find((c) => c.id === cId) || MOCK_COLLEGES.find((c) => c.id === cId) || MOCK_COLLEGES[0];
 
       setCurrentUser(foundUser);
       setActiveCollege(foundCollege);
+      setIsDemoMode(true);
 
       if (foundUser.campusId) {
         const camp = foundCollege.campuses?.find((c) => c.id === foundUser.campusId);
@@ -139,13 +183,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!hasServerSession) {
         if (isDemoAllowed) {
           const uId = getActiveUserId();
-          if (uId === 'user-platform-admin') {
-            setActiveUserId('user-maya');
-            setCurrentUser(MOCK_USERS[0]);
-          } else {
+          if (uId) {
             updateFromStorage();
+          } else {
+            setCurrentUser(null);
+            setIsDemoMode(false);
           }
-          setIsDemoMode(true);
         } else {
           setCurrentUser(null);
           setIsDemoMode(false);
@@ -326,12 +369,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
     } catch {}
-    setActiveUserId('user-maya');
+    clearActiveUserAndCollege();
     setCurrentUser(null);
     setServerAuthenticated(false);
     setIsDemoMode(false);
     if (typeof window !== 'undefined') {
-      window.location.href = '/auth/login';
+      window.location.href = '/login';
     }
   };
 

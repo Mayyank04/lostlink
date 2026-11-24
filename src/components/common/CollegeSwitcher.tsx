@@ -25,6 +25,29 @@ export const CollegeSwitcher: React.FC<CollegeSwitcherProps> = ({ compact = fals
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Unauthenticated visitors see neutral directory link rather than mock college
+  if (!user) {
+    return (
+      <Link
+        href="/colleges"
+        className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-xs font-medium text-slate-700 dark:text-slate-300 shadow-sm"
+        title="Browse Institutional Directory"
+      >
+        <div className="w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 shrink-0">
+          <School className="w-3.5 h-3.5" />
+        </div>
+        <div className="flex flex-col text-left">
+          <span className="font-semibold text-xs truncate max-w-[150px]">
+            Institutional Directory
+          </span>
+          <span className="text-[10px] text-slate-400 font-normal">
+            Participating Campuses
+          </span>
+        </div>
+      </Link>
+    );
+  }
+
   // Strict Campus Authority: Students cannot manually select or switch campus
   if (user && user.role === 'student') {
     return (

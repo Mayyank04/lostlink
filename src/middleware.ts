@@ -28,7 +28,7 @@ export async function middleware(req: NextRequest) {
 
   const token = req.cookies.get(SESSION_COOKIE_NAME)?.value;
 
-  let sessionUser: { role?: string; userId?: string } | null = null;
+  let sessionUser: { role?: string; userId?: string; isOnboarded?: boolean } | null = null;
   if (token) {
     try {
       const secret = getSecretKey();
@@ -39,7 +39,31 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  // 1. Unauthenticated users visiting protected student pages -> redirect to /login
+  // Helper to determine destination for authenticated user
+  const getAuthenticatedRedirectUrl = (user: { role?: string; isOnboarded?: boolean }) => {
+    const role = (user.role || '').toUpperCase();
+    if (role === 'PLATFORM_ADMIN') {
+      return new URL('/platform-admin', req.url);
+    }
+    if (role === 'COLLEGE_ADMIN' || role === 'COLLEGE_MODERATOR') {
+      return new URL('/college-admin', req.url);
+    }
+    // Student: check if onboarding completed
+    if (user.isOnboarded === false) {
+      return new URL('/onboarding/student', req.url);
+    }
+    return new URL('/dashboard', req.url);
+  };
+
+  // 1. Root page "/" handling
+  if (pathname === '/') {
+    if (!sessionUser) {
+      return NextResponse.redirect(new URL('/login', req.url));
+    }
+    return NextResponse.redirect(getAuthenticatedRedirectUrl(sessionUser));
+  }
+
+  // 2. Unauthenticated users visiting protected student pages -> redirect to /login
   const isProtectedPath =
     pathname.startsWith('/dashboard') ||
     pathname.startsWith('/campus/') ||
@@ -53,26 +77,18 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // 2. Authenticated users visiting / or /login or /auth/login -> redirect to their role dashboard
+  // 3. Authenticated users visiting auth entry points -> redirect to dashboard/onboarding
   const isAuthEntryPoint =
-    pathname === '/' ||
     pathname === '/login' ||
     pathname === '/auth/login' ||
     pathname === '/register' ||
     pathname === '/auth/register';
 
   if (isAuthEntryPoint && sessionUser) {
-    const role = (sessionUser.role || '').toUpperCase();
-    if (role === 'PLATFORM_ADMIN') {
-      return NextResponse.redirect(new URL('/platform-admin', req.url));
-    }
-    if (role === 'COLLEGE_ADMIN' || role === 'COLLEGE_MODERATOR') {
-      return NextResponse.redirect(new URL('/college-admin', req.url));
-    }
-    // Authenticated students go to dashboard
-    return NextResponse.redirect(new URL('/dashboard', req.url));
+    return NextResponse.redirect(getAuthenticatedRedirectUrl(sessionUser));
   }
 
+  // 4. All other pages (including /auth/verify-college, /colleges, etc., or unknown pages) pass through
   return NextResponse.next();
 }
 

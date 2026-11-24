@@ -52,6 +52,8 @@ function StudentLoginFormContent() {
         router.replace('/platform-admin');
       } else if (user.role === 'college_admin' || (user.role as any) === 'COLLEGE_ADMIN') {
         router.replace('/college-admin');
+      } else if (!user.isOnboarded) {
+        router.replace('/onboarding/student');
       } else {
         router.replace('/dashboard');
       }

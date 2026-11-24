@@ -1,4 +1,5 @@
-import StudentLoginPage, { metadata } from '@/app/login/page';
+import { redirect } from 'next/navigation';
 
-export { metadata };
-export default StudentLoginPage;
+export default function RootPage() {
+  redirect('/login');
+}

@@ -13,14 +13,30 @@ function VerifyCollegeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get('email') || '';
-  const collegeId = searchParams.get('college') || '';
-  const { allColleges, refreshUser } = useAuth();
+  const urlCollegeId = searchParams.get('college') || '';
+  const { user, serverAuthenticated, logout, refreshUser } = useAuth();
   const { success, error } = useToast();
 
   const [otpCode, setOtpCode] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [sandboxEnabled, setSandboxEnabled] = useState(process.env.NEXT_PUBLIC_AUTH_SANDBOX_MODE === 'true');
+  const [resolvedCollege, setResolvedCollege] = useState<{
+    id: string;
+    name: string;
+    shortName: string | null;
+    slug: string;
+    domain: string;
+    primaryColor?: string;
+    logoUrl?: string | null;
+  } | null>(null);
+  const [isResolving, setIsResolving] = useState(true);
+  const [resolveError, setResolveError] = useState<string | null>(null);
+
+  // Active session conflict detection
+  const hasSessionConflict = Boolean(
+    serverAuthenticated && user && email && user.email.toLowerCase() !== email.toLowerCase()
+  );
 
   React.useEffect(() => {
     fetch('/api/auth/sandbox-status')
@@ -33,12 +49,44 @@ function VerifyCollegeContent() {
       .catch(() => {});
   }, []);
 
-  const college = allColleges.find((c) => c.id === collegeId) || allColleges[0];
+  // Server-Side Institutional College Resolution via Email Domain
+  React.useEffect(() => {
+    if (!email) {
+      setIsResolving(false);
+      setResolveError('No institutional email address provided. Please return to the login page.');
+      return;
+    }
+
+    setIsResolving(true);
+    setResolveError(null);
+
+    fetch(`/api/auth/resolve-college?email=${encodeURIComponent(email)}`)
+      .then(async (res) => {
+        const data = await res.json();
+        if (res.ok && data.success && data.college) {
+          setResolvedCollege(data.college);
+          setResolveError(null);
+        } else {
+          setResolveError(data.message || 'Unable to resolve your institutional email domain to an approved university.');
+        }
+      })
+      .catch(() => {
+        setResolveError('Failed to connect to university domain registry. Please check your internet connection.');
+      })
+      .finally(() => {
+        setIsResolving(false);
+      });
+  }, [email]);
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!otpCode.trim()) {
       error('Input Required', 'Please enter the 6-digit verification code.');
+      return;
+    }
+
+    if (hasSessionConflict) {
+      error('Active Session Conflict', 'Please sign out of your current session before verifying a new account.');
       return;
     }
 
@@ -48,7 +96,11 @@ function VerifyCollegeContent() {
       const res = await fetch('/api/auth/verify-college', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, collegeId, otpCode: otpCode.trim() }),
+        body: JSON.stringify({
+          email,
+          collegeId: resolvedCollege?.id || urlCollegeId,
+          otpCode: otpCode.trim(),
+        }),
       });
 
       const data = await res.json();
@@ -78,7 +130,10 @@ function VerifyCollegeContent() {
       const res = await fetch('/api/auth/resend-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, collegeId }),
+        body: JSON.stringify({
+          email,
+          collegeId: resolvedCollege?.id || urlCollegeId,
+        }),
       });
 
       const data = await res.json();
@@ -110,13 +165,69 @@ function VerifyCollegeContent() {
       </div>
 
       <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-card space-y-5">
-        {college && (
-          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs space-y-1">
-            <span className="text-slate-400 font-semibold uppercase text-[10px]">Institution:</span>
-            <p className="font-bold text-slate-900 dark:text-white">{college.name}</p>
-            {college.domain && <p className="text-[11px] text-slate-500">Domain: @{college.domain}</p>}
+        {/* Active Session Conflict Alert */}
+        {hasSessionConflict && user && (
+          <div className="p-4 rounded-xl border border-amber-300 dark:border-amber-700/60 bg-amber-50/80 dark:bg-amber-950/30 text-xs space-y-2">
+            <div className="flex items-center gap-2 font-bold text-amber-900 dark:text-amber-200">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+              Active Session Conflict
+            </div>
+            <p className="text-amber-800 dark:text-amber-300 leading-relaxed">
+              You are currently authenticated as <strong>{user.email}</strong> ({user.name}). You are attempting to verify an account for <strong>{email}</strong>.
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="text-xs w-full font-semibold border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200"
+              onClick={async () => {
+                await logout();
+                window.location.reload();
+              }}
+            >
+              Sign Out of {user.email} to Proceed
+            </Button>
           </div>
         )}
+
+        {/* Server-Resolved University Institution */}
+        {isResolving ? (
+          <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs text-center text-slate-500 animate-pulse">
+            Resolving campus identity from domain...
+          </div>
+        ) : resolveError ? (
+          <div className="p-4 rounded-xl border border-rose-300 dark:border-rose-800/60 bg-rose-50/80 dark:bg-rose-950/30 text-xs space-y-2">
+            <div className="flex items-center gap-2 font-bold text-rose-900 dark:text-rose-200">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              Domain Verification Error
+            </div>
+            <p className="text-rose-800 dark:text-rose-300 leading-relaxed">{resolveError}</p>
+            <Link
+              href="/login"
+              className="inline-block pt-1 font-semibold text-brandTeal-700 dark:text-brandTeal-400 hover:underline"
+            >
+              Return to Student Sign In &rarr;
+            </Link>
+          </div>
+        ) : resolvedCollege ? (
+          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-slate-400 font-semibold uppercase text-[10px]">Verified Campus:</span>
+              <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/60">
+                Official Institutional Record
+              </span>
+            </div>
+            <p className="font-bold text-slate-900 dark:text-white text-sm">{resolvedCollege.name}</p>
+            {resolvedCollege.domain && (
+              <p className="text-[11px] text-slate-500">Authorized Domain: @{resolvedCollege.domain}</p>
+            )}
+            {urlCollegeId && urlCollegeId !== resolvedCollege.id && (
+              <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium pt-1">
+                Note: Derived authoritative identity from domain @{resolvedCollege.domain} as {resolvedCollege.name}.
+              </p>
+            )}
+          </div>
+        ) : null}
 
         {sandboxEnabled && (
           <div className="rounded-xl border border-amber-300 dark:border-amber-700/60 bg-amber-50/80 dark:bg-amber-950/30 p-3 text-xs space-y-1">
@@ -135,13 +246,21 @@ function VerifyCollegeContent() {
             value={otpCode}
             onChange={(e) => setOtpCode(e.target.value)}
             placeholder="123456"
-            helperText="Check your university email inbox (and spam folder) for the verification code."
+            helperText="Check your university email inbox for the verification code."
             className="text-center font-mono text-lg font-bold tracking-widest"
             maxLength={6}
+            disabled={Boolean(resolveError) || hasSessionConflict}
             required
           />
 
-          <Button type="submit" variant="primary" size="md" className="w-full text-xs font-bold" isLoading={isVerifying}>
+          <Button
+            type="submit"
+            variant="primary"
+            size="md"
+            className="w-full text-xs font-bold"
+            isLoading={isVerifying}
+            disabled={Boolean(resolveError) || hasSessionConflict || isResolving}
+          >
             Complete College Verification <ArrowRight className="w-4 h-4 ml-1" />
           </Button>
         </form>
@@ -151,7 +270,7 @@ function VerifyCollegeContent() {
           <button
             type="button"
             onClick={handleResendCode}
-            disabled={isResending}
+            disabled={isResending || Boolean(resolveError) || hasSessionConflict}
             className="text-brandTeal-700 dark:text-brandTeal-400 font-semibold hover:underline disabled:opacity-50"
           >
             {isResending ? 'Sending...' : 'Resend Code'}

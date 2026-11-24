@@ -194,13 +194,13 @@ describe('LOSTLINK 2.0 — SANDBOX OTP LOGIN & LOGIN-FIRST FLOW', () => {
   // =========================================================================
   // REQUIREMENT 1: / opens login page for unauthenticated users
   // =========================================================================
-  it('1. Confirms / opens the student login page for unauthenticated users via middleware', async () => {
+  it('1. Confirms / redirects unauthenticated users to /login via middleware', async () => {
     const unauthReq = new NextRequest('http://localhost:3000/');
     const response = await middleware(unauthReq);
 
-    // Unauthenticated request to / passes through to render StudentLoginPage (NextResponse.next())
-    expect(response.status).toBe(200);
-    expect(response.headers.get('x-middleware-rewrite')).toBeNull();
+    // Unauthenticated request to / redirects to /login
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toBe('http://localhost:3000/login');
   });
 
   // =========================================================================

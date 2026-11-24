@@ -84,14 +84,18 @@ export const Navbar: React.FC = () => {
             <span className="font-medium">
               {serverAuthenticated && role === 'platform_admin'
                 ? 'Platform Governance Active — Authenticated as Dr. Evelyn Reed (PLATFORM_ADMIN)'
-                : serverAuthenticated
-                ? `LostLink 2.0 Active — Authenticated as ${user?.name} (${role.replace('_', ' ')})`
-                : 'LostLink 2.0 Academic Demo — Multi-Campus Architecture Active'}
+                : serverAuthenticated && user
+                ? `LostLink 2.0 Active — Authenticated as ${user.name} (${role.replace('_', ' ')})`
+                : isDemoMode
+                ? 'LostLink 2.0 Academic Demo — Multi-Campus Architecture Active'
+                : 'LostLink 2.0 — Verified Institutional Lost & Found Network'}
             </span>
           </div>
-          <div className="hidden sm:flex items-center gap-4">
-            <RoleSwitcher />
-          </div>
+          {isDemoMode && (
+            <div className="hidden sm:flex items-center gap-4">
+              {isDemoMode && <RoleSwitcher />}
+            </div>
+          )}
         </div>
       </div>
 
@@ -297,7 +301,7 @@ export const Navbar: React.FC = () => {
                   <p className="text-[10px] text-slate-500">{user?.email}</p>
                 </div>
               </div>
-              <RoleSwitcher />
+              {isDemoMode && <RoleSwitcher />}
             </div>
           )}
         </div>
