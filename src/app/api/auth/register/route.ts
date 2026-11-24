@@ -24,6 +24,7 @@ const PUBLIC_EMAIL_PROVIDERS = new Set([
 ]);
 
 import { resolveCollegeFromEmail } from '@/lib/college/resolve-college';
+import { verifyEmailVerificationOTP } from '@/lib/auth/emailVerification';
 
 const registerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -31,6 +32,8 @@ const registerSchema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters'),
   collegeId: z.string().optional(),
   studentId: z.string().optional(),
+  otp: z.string().optional(),
+  otpCode: z.string().optional(),
 });
 
 export async function POST(req: Request) {
@@ -87,8 +90,22 @@ export async function POST(req: Request) {
       );
     }
 
-    // Strict Verification: Membership begins as PENDING, activated only upon OTP verification
-    const membershipStatus = MembershipStatus.PENDING;
+    // Strict Verification: Membership begins as PENDING, activated upon OTP verification
+    const otpCandidate = result.data.otpCode || result.data.otp;
+    let isPreVerified = false;
+
+    if (otpCandidate) {
+      const otpCheck = await verifyEmailVerificationOTP(email, otpCandidate, college.id);
+      if (!otpCheck.success) {
+        return NextResponse.json(
+          { error: otpCheck.error || 'Invalid or expired verification code.' },
+          { status: 400 }
+        );
+      }
+      isPreVerified = true;
+    }
+
+    const membershipStatus = isPreVerified ? MembershipStatus.VERIFIED : MembershipStatus.PENDING;
 
     const existingUser = await prisma.user.findUnique({
       where: { email },
@@ -112,6 +129,8 @@ export async function POST(req: Request) {
           passwordHash,
           role: UserRole.STUDENT,
           status: 'ACTIVE',
+          emailVerified: isPreVerified ? new Date() : null,
+          isOnboarded: false,
         },
       });
 
@@ -122,7 +141,7 @@ export async function POST(req: Request) {
           status: membershipStatus,
           studentIdentifier: studentId || null,
           verificationMethod: 'EMAIL_OTP',
-          verifiedAt: null,
+          verifiedAt: isPreVerified ? new Date() : null,
         },
       });
 
@@ -133,22 +152,31 @@ export async function POST(req: Request) {
           action: 'USER_REGISTERED',
           resourceType: 'USER',
           resourceId: user.id,
-          metadata: JSON.stringify({ emailDomain: resolution.domain, membershipStatus: 'PENDING' }),
+          metadata: JSON.stringify({
+            emailDomain: resolution.domain,
+            membershipStatus,
+            verifiedViaOtp: isPreVerified,
+          }),
         },
       });
 
       return user;
     });
 
-    // Automatically generate and dispatch secure email verification OTP bound to college and user
-    await createEmailVerificationOTP(newUser.email, college.id, newUser.id);
+    // Automatically generate and dispatch secure email verification OTP if not pre-verified
+    if (!isPreVerified) {
+      await createEmailVerificationOTP(newUser.email, college.id, newUser.id);
+    }
 
     const { token, expiresAt } = await createSession(newUser.id);
     await setSessionCookie(token, expiresAt);
 
     return NextResponse.json(
       {
-        message: 'Account created successfully. Verification OTP dispatched to your institutional email.',
+        message: isPreVerified
+          ? 'Account created and verified successfully. Welcome to LostLink!'
+          : 'Account created successfully. Verification OTP dispatched to your institutional email.',
+        redirectTo: '/onboarding/student',
         user: {
           id: newUser.id,
           name: newUser.name,
@@ -157,6 +185,8 @@ export async function POST(req: Request) {
           collegeId: college.id,
           collegeName: college.name,
           membershipStatus,
+          emailVerified: Boolean(newUser.emailVerified),
+          isOnboarded: false,
         },
       },
       { status: 201 }

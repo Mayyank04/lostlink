@@ -220,10 +220,12 @@ model User {
   gradYear      Int?
   isDemoUser    Boolean    @default(false)
   mustChangePassword Boolean @default(false)
+  isOnboarded   Boolean    @default(false)
   lastLoginAt   DateTime?
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
+  studentProfile           StudentProfile?
   memberships              CollegeMembership[]
   reportedItems            Item[]                    @relation("UserReportedItems")
   claims                   Claim[]                   @relation("UserClaims")
@@ -260,6 +262,32 @@ model CollegeMembership {
   @@index([userId])
   @@index([collegeId])
   @@index([status])
+}
+
+model StudentProfile {
+  id                String    @id @default(cuid())
+  userId            String    @unique
+  studentIdNumber   String?   // Enrollment / Roll Number
+  course            String    // Course / Program, e.g. "B.Tech Computer Science"
+  department        String    // Department, e.g. "School of Engineering & Technology"
+  batch             String    // Batch, e.g. "2023-2027"
+  admissionYear     Int       // Year of admission, e.g. 2023
+  currentYear       Int       // Current year of study, e.g. 1, 2, 3, 4
+  section           String?   // Section, e.g. "CSE-A"
+  semester          Int?      // Optional semester, e.g. 5
+  phoneNumber       String?
+  avatarUrl         String?
+  isOnboardingDone  Boolean   @default(false)
+  completedAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([course])
+  @@index([department])
+  @@index([batch])
 }
 
 // ------------------------------------------------------------------------------

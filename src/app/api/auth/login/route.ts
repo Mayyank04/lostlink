@@ -89,9 +89,13 @@ export async function POST(req: Request) {
     } else if (user.role === 'COLLEGE_ADMIN' || user.role === 'COLLEGE_MODERATOR') {
       redirectTo = '/college-admin';
     } else {
-      const verifiedMembership = user.memberships.find((m) => m.status === 'VERIFIED');
-      if (verifiedMembership?.college?.slug) {
-        redirectTo = `/campus/${verifiedMembership.college.slug}/dashboard`;
+      if (!user.isOnboarded) {
+        redirectTo = '/onboarding/student';
+      } else {
+        const verifiedMembership = user.memberships.find((m) => m.status === 'VERIFIED');
+        if (verifiedMembership?.college?.slug) {
+          redirectTo = `/campus/${verifiedMembership.college.slug}/dashboard`;
+        }
       }
     }
 
@@ -105,6 +109,8 @@ export async function POST(req: Request) {
         role: user.role,
         image: user.image,
         emailVerified: user.emailVerified,
+        isOnboarded: user.isOnboarded,
+        collegeId: user.memberships[0]?.collegeId,
         memberships: user.memberships.map((m) => ({
           id: m.id,
           collegeId: m.collegeId,

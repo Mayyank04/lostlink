@@ -41,6 +41,24 @@ export interface AuthenticatedUser {
   status: UserStatus;
   emailVerified: Date | null;
   image: string | null;
+  phone?: string | null;
+  department?: string | null;
+  gradYear?: number | null;
+  isOnboarded?: boolean;
+  studentProfile?: {
+    id: string;
+    studentIdNumber: string | null;
+    course: string;
+    department: string;
+    batch: string;
+    admissionYear: number;
+    currentYear: number;
+    section: string | null;
+    semester: number | null;
+    phoneNumber: string | null;
+    avatarUrl: string | null;
+    isOnboardingDone: boolean;
+  } | null;
   memberships: {
     id: string;
     collegeId: string;
@@ -168,6 +186,7 @@ export async function getCurrentUser(req?: Request): Promise<AuthenticatedUser |
       include: {
         user: {
           include: {
+            studentProfile: true,
             memberships: {
               include: {
                 college: {
@@ -206,6 +225,26 @@ export async function getCurrentUser(req?: Request): Promise<AuthenticatedUser |
       status: session.user.status,
       emailVerified: session.user.emailVerified,
       image: session.user.image,
+      phone: session.user.phone,
+      department: session.user.department,
+      gradYear: session.user.gradYear,
+      isOnboarded: session.user.isOnboarded,
+      studentProfile: session.user.studentProfile
+        ? {
+            id: session.user.studentProfile.id,
+            studentIdNumber: session.user.studentProfile.studentIdNumber,
+            course: session.user.studentProfile.course,
+            department: session.user.studentProfile.department,
+            batch: session.user.studentProfile.batch,
+            admissionYear: session.user.studentProfile.admissionYear,
+            currentYear: session.user.studentProfile.currentYear,
+            section: session.user.studentProfile.section,
+            semester: session.user.studentProfile.semester,
+            phoneNumber: session.user.studentProfile.phoneNumber,
+            avatarUrl: session.user.studentProfile.avatarUrl,
+            isOnboardingDone: session.user.studentProfile.isOnboardingDone,
+          }
+        : null,
       memberships: session.user.memberships.map((m) => ({
         id: m.id,
         collegeId: m.collegeId,

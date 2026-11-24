@@ -28,10 +28,18 @@ import {
   UserCheck,
   Trash2,
   Edit,
+  Search,
+  Bell,
+  User as UserIcon,
+  LogOut,
+  FolderOpen,
+  GraduationCap,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 export default function StudentDashboardPage() {
-  const { user, activeCollege, activeCampus } = useAuth();
+  const router = useRouter();
+  const { user, activeCollege, activeCampus, logout } = useAuth();
   const { success, error } = useToast();
 
   const [myReports, setMyReports] = useState<ItemReport[]>([]);
@@ -89,6 +97,30 @@ export default function StudentDashboardPage() {
 
   return (
     <div className="container mx-auto px-4 sm:px-6 py-8 space-y-8 max-w-6xl">
+      {/* Incomplete Onboarding Banner */}
+      {user && !user.isOnboarded && !user.studentProfile?.isOnboardingDone && (
+        <div className="rounded-2xl border border-amber-200 dark:border-amber-800/60 bg-amber-50/60 dark:bg-amber-950/20 p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 flex items-center justify-center shrink-0">
+              <GraduationCap className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+                Complete Your Academic Profile
+              </h2>
+              <p className="text-xs text-slate-500">
+                Register your course, enrollment number, department, and section to activate institutional item release permissions.
+              </p>
+            </div>
+          </div>
+          <Link href="/onboarding/student">
+            <Button size="sm" variant="primary" className="text-xs whitespace-nowrap">
+              Complete Profile <ArrowRight className="w-3.5 h-3.5 ml-1" />
+            </Button>
+          </Link>
+        </div>
+      )}
+
       {/* Personalized Greeting & Profile Header */}
       <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-card flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
@@ -100,8 +132,8 @@ export default function StudentDashboardPage() {
               user?.name?.charAt(0) || 'U'
             )}
           </div>
-          <div>
-            <div className="flex items-center gap-2">
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                 Welcome back, {user?.name?.split(' ')[0] || 'Student'}
               </h1>
@@ -109,15 +141,22 @@ export default function StudentDashboardPage() {
                 Verified Student
               </span>
             </div>
-            <p className="text-xs text-slate-500 mt-1 flex flex-wrap items-center gap-2">
-              <span className="font-semibold text-slate-700 dark:text-slate-300">
-                {activeCollege.name}
-              </span>
-              <span>•</span>
-              <span>{user?.department || 'Undergraduate Studies'}</span>
-              <span>•</span>
-              <span className="font-mono text-[11px] text-slate-400">ID: {user?.studentIdNumber || 'APX-2027'}</span>
+            <p className="text-xs text-slate-600 dark:text-slate-300 font-medium">
+              {activeCollege.name}
             </p>
+            <div className="text-[11px] text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span>{user?.studentProfile?.course || 'B.Tech Computer Science'}</span>
+              <span>•</span>
+              <span>{user?.studentProfile?.department || user?.department || 'Department of Computer Science'}</span>
+              <span>•</span>
+              <span className="font-mono">Batch: {user?.studentProfile?.batch || '2023-2027'}</span>
+              <span>•</span>
+              <span>Year: {user?.studentProfile?.currentYear ? `Year ${user.studentProfile.currentYear}` : 'Year 2'}</span>
+              <span>•</span>
+              <span>Section: {user?.studentProfile?.section || 'A'}</span>
+              <span>•</span>
+              <span className="font-mono text-slate-400">ID: {user?.studentProfile?.studentIdNumber || user?.studentIdNumber || 'APX-2027'}</span>
+            </div>
           </div>
         </div>
 
@@ -135,6 +174,83 @@ export default function StudentDashboardPage() {
             </Button>
           </Link>
         </div>
+      </div>
+
+      {/* Student Campus Navigation Bar */}
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-2 shadow-subtle flex items-center justify-between gap-1 overflow-x-auto text-xs">
+        <div className="flex items-center gap-1 min-w-max">
+          <Link
+            href="/dashboard"
+            className="px-3 py-2 rounded-xl bg-brandTeal-50 dark:bg-brandTeal-950/60 text-brandTeal-700 dark:text-brandTeal-300 font-bold flex items-center gap-1.5"
+          >
+            <School className="w-3.5 h-3.5" />
+            Dashboard
+          </Link>
+          <Link
+            href="/report/lost"
+            className="px-3 py-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium flex items-center gap-1.5 transition"
+          >
+            <PlusCircle className="w-3.5 h-3.5 text-rose-600" />
+            Report Lost
+          </Link>
+          <Link
+            href="/report/found"
+            className="px-3 py-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium flex items-center gap-1.5 transition"
+          >
+            <PlusCircle className="w-3.5 h-3.5 text-emerald-600" />
+            Report Found
+          </Link>
+          <Link
+            href="/discover?type=lost"
+            className="px-3 py-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium flex items-center gap-1.5 transition"
+          >
+            <Search className="w-3.5 h-3.5 text-slate-400" />
+            Browse Lost
+          </Link>
+          <Link
+            href="/discover?type=found"
+            className="px-3 py-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium flex items-center gap-1.5 transition"
+          >
+            <Search className="w-3.5 h-3.5 text-slate-400" />
+            Browse Found
+          </Link>
+          <a
+            href="#my-reports"
+            className="px-3 py-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium flex items-center gap-1.5 transition"
+          >
+            <FolderOpen className="w-3.5 h-3.5 text-slate-400" />
+            My Reports
+          </a>
+          <Link
+            href="/claims"
+            className="px-3 py-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium flex items-center gap-1.5 transition"
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
+            My Claims
+          </Link>
+          <Link
+            href="/notifications"
+            className="px-3 py-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium flex items-center gap-1.5 transition"
+          >
+            <Bell className="w-3.5 h-3.5 text-slate-400" />
+            Notifications
+          </Link>
+          <Link
+            href="/profile"
+            className="px-3 py-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium flex items-center gap-1.5 transition"
+          >
+            <UserIcon className="w-3.5 h-3.5 text-slate-400" />
+            My Profile
+          </Link>
+        </div>
+
+        <button
+          onClick={() => logout()}
+          className="px-3 py-2 rounded-xl text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 font-medium flex items-center gap-1.5 transition shrink-0"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          Logout
+        </button>
       </div>
 
       {/* Dynamic Counter Metrics from Active Data Source */}

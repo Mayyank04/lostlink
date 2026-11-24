@@ -44,7 +44,7 @@ function VerifyCollegeContent() {
       if (res.ok) {
         await refreshUser?.();
         success('College Email Verified', 'Your student identity is now active and protected.');
-        router.push('/dashboard');
+        router.push('/onboarding/student');
       } else {
         error('Verification Failed', data.error || 'The code provided is invalid or has expired.');
       }

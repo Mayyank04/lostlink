@@ -360,21 +360,22 @@ export const MultiStepReportForm: React.FC<MultiStepReportFormProps> = ({ report
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Select
-                label="University / Institution *"
-                value={collegeId}
-                onChange={(e) => {
-                  setCollegeId(e.target.value);
-                  const col = allColleges.find((c) => c.id === e.target.value);
-                  if (col && col.campuses[0]) setCampusId(col.campuses[0].id);
-                }}
-              >
-                {allColleges.map((col) => (
-                  <option key={col.id} value={col.id}>
-                    {col.name}
-                  </option>
-                ))}
-              </Select>
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                  Verified Institution *
+                </label>
+                <div className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2 truncate">
+                    <Building className="w-4 h-4 text-brandTeal-600 shrink-0" />
+                    <span className="font-semibold text-slate-900 dark:text-white truncate">
+                      {activeCollege.name}
+                    </span>
+                  </div>
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 flex items-center gap-0.5 shrink-0">
+                    <ShieldCheck className="w-3 h-3" /> Locked
+                  </span>
+                </div>
+              </div>
 
               <Select
                 label="Campus / Branch *"

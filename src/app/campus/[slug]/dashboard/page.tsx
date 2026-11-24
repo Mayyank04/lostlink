@@ -170,22 +170,38 @@ export default function CampusDashboardPage() {
                 Verified Campus
               </span>
             </div>
-            <p className="text-xs text-slate-500 mt-1 flex items-center gap-2">
+            <p className="text-xs text-slate-500 mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
               <span>{college?.city ? `${college.city}, ${college.state}` : 'Campus Lost & Found Network'}</span>
               <span>•</span>
               <span>Logged in as <strong>{user?.name || 'Student'}</strong></span>
+              {user?.studentProfile && (
+                <>
+                  <span>•</span>
+                  <span>{user.studentProfile.course}</span>
+                  <span>•</span>
+                  <span>Batch: {user.studentProfile.batch}</span>
+                  <span>•</span>
+                  <span>Year: {user.studentProfile.currentYear}</span>
+                  {user.studentProfile.section && (
+                    <>
+                      <span>•</span>
+                      <span>Sec: {user.studentProfile.section}</span>
+                    </>
+                  )}
+                </>
+              )}
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-3 w-full md:w-auto">
-          <Link href="/report?type=lost" className="flex-1 md:flex-none">
+          <Link href="/report/lost" className="flex-1 md:flex-none">
             <Button variant="destructive" className="w-full flex items-center justify-center gap-2 text-xs">
               <PlusCircle className="w-4 h-4" />
               Report Lost Item
             </Button>
           </Link>
-          <Link href="/report?type=found" className="flex-1 md:flex-none">
+          <Link href="/report/found" className="flex-1 md:flex-none">
             <Button variant="primary" className="w-full flex items-center justify-center gap-2 text-xs">
               <PlusCircle className="w-4 h-4" />
               Report Found Item

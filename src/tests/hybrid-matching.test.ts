@@ -180,6 +180,14 @@ describe('Phase 5 Distributed Hybrid Matching Architecture', () => {
       },
     });
 
+    // Clean up any unleased queued jobs created by other tests so expired lease reclaim is tested cleanly
+    await prisma.matchingJob.deleteMany({
+      where: {
+        status: JobStatus.QUEUED,
+        id: { not: activeJob!.id },
+      },
+    });
+
     // Cloud fallback worker should now be able to reclaim the expired job!
     const fallbackClaim = await leaseMatchingJob(
       'worker-cloud-fallback-01',

@@ -14,5 +14,20 @@ export interface User {
   phone?: string;
   isVerified: boolean;
   joinedAt: string;
+  isOnboarded?: boolean;
+  studentProfile?: {
+    id: string;
+    studentIdNumber: string | null;
+    course: string;
+    department: string;
+    batch: string;
+    admissionYear: number;
+    currentYear: number;
+    section: string | null;
+    semester?: number | null;
+    phoneNumber?: string | null;
+    avatarUrl?: string | null;
+    isOnboardingDone?: boolean;
+  } | null;
 }
 

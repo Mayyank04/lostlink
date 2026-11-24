@@ -579,7 +579,53 @@ async function main() {
     },
   });
 
-  console.log('🏛️  Seeded 24 Colleges (Including Greater Noida & Gurgaon Institutional Clusters).');
+  const sgtUniversity = await prisma.college.create({
+    data: {
+      id: 'college-sgt-university',
+      name: 'SGT University',
+      shortName: 'SGT',
+      slug: 'sgt-university',
+      emailDomains: ['sgtuniversity.ac.in', 'sgtuniversity.ed.in'],
+      logoUrl: 'https://illustrations.popsy.co/teal/presentation.svg',
+      city: 'Gurugram',
+      state: 'Haryana',
+      country: 'India',
+      primaryColor: '#800020',
+      status: CollegeStatus.ACTIVE,
+      domainVerificationStatus: 'VERIFIED',
+      institutionType: 'Private University',
+      website: 'https://sgtuniversity.ac.in',
+      address: 'Budhera, Gurugram-Badli Road, Gurugram, Haryana 122505',
+      contactEmail: 'lostfound@sgtuniversity.ac.in',
+      contactPhone: '+91-124-227-8183',
+      domainMetadata: 'UGC-recognized university under Haryana Act No. 8 of 2013 - verified ac.in domain',
+    },
+  });
+
+  const mdiCollege = await prisma.college.create({
+    data: {
+      id: 'college-mdi-gurgaon',
+      name: 'Management Development Institute',
+      shortName: 'MDI Gurgaon',
+      slug: 'management-development-institute',
+      emailDomains: ['mdi.ac.in'],
+      logoUrl: 'https://illustrations.popsy.co/blue/work-from-home.svg',
+      city: 'Gurugram',
+      state: 'Haryana',
+      country: 'India',
+      primaryColor: '#1A365D',
+      status: CollegeStatus.ACTIVE,
+      domainVerificationStatus: 'VERIFIED',
+      institutionType: 'Autonomous Business School',
+      website: 'https://www.mdi.ac.in',
+      address: 'Mehrauli Road, Sukhrali, Sector 17, Gurugram, Haryana 122007',
+      contactEmail: 'lostfound@mdi.ac.in',
+      contactPhone: '+91-124-456-0000',
+      domainMetadata: 'AMBA & AACSB accredited premier management institute - verified official domain',
+    },
+  });
+
+  console.log('🏛️  Seeded 26 Colleges (Including Greater Noida & Gurugram Institutional Clusters).');
 
   // ==============================================================================
   // RELATIONAL COLLEGE EMAIL DOMAIN REGISTRY
@@ -609,6 +655,8 @@ async function main() {
     starexCollege,
     kiitCollege,
     gpManesarCollege,
+    sgtUniversity,
+    mdiCollege,
   ];
 
   for (const college of allSeededColleges) {

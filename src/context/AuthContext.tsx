@@ -68,7 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             id: u.id,
             name: u.name,
             email: u.email,
-            avatarUrl: u.image || undefined,
+            avatarUrl: u.image || u.studentProfile?.avatarUrl || undefined,
             role: (u.role === 'PLATFORM_ADMIN'
               ? 'platform_admin'
               : u.role === 'COLLEGE_ADMIN'
@@ -78,7 +78,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               : 'student') as UserRole,
             collegeId: foundCollege.id,
             campusId: foundCollege.campuses[0]?.id,
+            studentIdNumber: u.studentProfile?.studentIdNumber || userCollegeMembership?.studentIdentifier || undefined,
+            department: u.studentProfile?.department || u.department || undefined,
+            graduationYear: u.studentProfile ? u.studentProfile.admissionYear + 4 : u.gradYear || undefined,
+            phone: u.studentProfile?.phoneNumber || u.phone || undefined,
             isVerified: Boolean(u.emailVerified),
+            isOnboarded: Boolean(u.isOnboarded || u.studentProfile?.isOnboardingDone),
+            studentProfile: u.studentProfile || null,
             joinedAt: new Date().toISOString(),
           });
           setActiveCollege(foundCollege);
