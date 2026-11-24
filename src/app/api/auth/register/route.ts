@@ -23,11 +23,13 @@ const PUBLIC_EMAIL_PROVIDERS = new Set([
   'yandex.com',
 ]);
 
+import { resolveCollegeFromEmail } from '@/lib/college/resolve-college';
+
 const registerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Valid institutional email required').toLowerCase().trim(),
   password: z.string().min(8, 'Password must be at least 8 characters'),
-  collegeId: z.string().min(1, 'College selection is required'),
+  collegeId: z.string().optional(),
   studentId: z.string().optional(),
 });
 
@@ -52,55 +54,35 @@ export async function POST(req: Request) {
     }
 
     const { name, email, password, collegeId, studentId } = result.data;
-    const emailDomain = email.split('@')[1]?.toLowerCase().trim();
 
-    if (!emailDomain || PUBLIC_EMAIL_PROVIDERS.has(emailDomain)) {
+    // Authoritative Server-Side Institutional Domain Resolution
+    const resolution = await resolveCollegeFromEmail(email);
+    if (!resolution.success) {
+      return NextResponse.json(
+        { error: resolution.message },
+        { status: 400 }
+      );
+    }
+
+    const targetCollegeId = resolution.collegeId;
+    if (collegeId && collegeId !== targetCollegeId) {
+      const requestedCollege = await prisma.college.findUnique({ where: { id: collegeId } });
+      const requestedName = requestedCollege?.name || 'the selected institution';
       return NextResponse.json(
         {
-          error:
-            'Personal email addresses (e.g. Gmail, Yahoo, Outlook) are not permitted. Please register using your official university-issued email.',
+          error: `Email domain "@${resolution.domain}" is not authorized for ${requestedName}. Your institutional email domain belongs to ${resolution.collegeName}. You cannot manually select or assign a different college.`,
         },
         { status: 400 }
       );
     }
 
     const college = await prisma.college.findUnique({
-      where: { id: collegeId },
+      where: { id: targetCollegeId },
     });
 
-    if (!college) {
-      return NextResponse.json(
-        { error: 'Selected institution does not exist' },
-        { status: 404 }
-      );
-    }
-
-    if (college.status !== 'ACTIVE') {
+    if (!college || college.status !== 'ACTIVE') {
       return NextResponse.json(
         { error: 'Selected institution is currently suspended or inactive' },
-        { status: 400 }
-      );
-    }
-
-    if (college.domainVerificationStatus !== 'VERIFIED') {
-      return NextResponse.json(
-        {
-          error:
-            'The domain for this institution is pending official verification. Student registration is not permitted until institutional verification is complete.',
-        },
-        { status: 400 }
-      );
-    }
-
-    const isDomainAllowed = college.emailDomains.some(
-      (d) => d.toLowerCase().trim() === emailDomain
-    );
-
-    if (!isDomainAllowed) {
-      return NextResponse.json(
-        {
-          error: `Email domain "@${emailDomain}" is not authorized for ${college.name}. Allowed institutional domain(s): ${college.emailDomains.map((d) => '@' + d).join(', ')}`,
-        },
         { status: 400 }
       );
     }
@@ -151,7 +133,7 @@ export async function POST(req: Request) {
           action: 'USER_REGISTERED',
           resourceType: 'USER',
           resourceId: user.id,
-          metadata: JSON.stringify({ emailDomain, membershipStatus: 'PENDING' }),
+          metadata: JSON.stringify({ emailDomain: resolution.domain, membershipStatus: 'PENDING' }),
         },
       });
 

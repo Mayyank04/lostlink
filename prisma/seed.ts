@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole, UserStatus, CollegeStatus, MembershipStatus, ItemReportType, ItemStatus, ClaimStatus } from '@prisma/client';
+import { PrismaClient, UserRole, UserStatus, CollegeStatus, DomainStatus, MembershipStatus, ItemReportType, ItemStatus, ClaimStatus } from '@prisma/client';
 import argon2 from 'argon2';
 import crypto from 'crypto';
 
@@ -32,6 +32,7 @@ async function main() {
   await prisma.collegeMembership.deleteMany();
   await prisma.campusLocation.deleteMany();
   await prisma.campus.deleteMany();
+  await prisma.collegeEmailDomain.deleteMany();
   await prisma.college.deleteMany();
   await prisma.user.deleteMany();
 
@@ -50,6 +51,7 @@ async function main() {
       country: 'United States',
       primaryColor: '#0F766E',
       status: CollegeStatus.ACTIVE,
+      domainVerificationStatus: 'VERIFIED',
     },
   });
 
@@ -65,6 +67,7 @@ async function main() {
       country: 'United States',
       primaryColor: '#2563EB',
       status: CollegeStatus.ACTIVE,
+      domainVerificationStatus: 'VERIFIED',
     },
   });
 
@@ -293,7 +296,339 @@ async function main() {
     },
   });
 
-  console.log('🏛️  Seeded 12 Colleges (Including Greater Noida Regional Cluster & Verification Sandbox).');
+  // ==============================================================================
+  // GURGAON / GURUGRAM (HARYANA) COMPREHENSIVE DIRECTORY
+  // ==============================================================================
+
+  const ncuCollege = await prisma.college.create({
+    data: {
+      id: 'college-ncu',
+      name: 'The NorthCap University',
+      shortName: 'NCU',
+      slug: 'the-northcap-university',
+      emailDomains: ['ncuindia.edu'],
+      logoUrl: 'https://illustrations.popsy.co/teal/presentation.svg',
+      city: 'Gurugram',
+      state: 'Haryana',
+      country: 'India',
+      primaryColor: '#0B3B60',
+      status: CollegeStatus.ACTIVE,
+      domainVerificationStatus: 'VERIFIED',
+      institutionType: 'Private University',
+      website: 'https://www.ncuindia.edu',
+      address: 'Huda, Sector 23-A, Gurugram, Haryana 122017',
+      contactEmail: 'lostfound@ncuindia.edu',
+      contactPhone: '+91-124-236-5811',
+      domainMetadata: 'Verified official university domain registry (ncuindia.edu) - NAAC Grade A accredited',
+    },
+  });
+
+  const gdGoenkaCollege = await prisma.college.create({
+    data: {
+      id: 'college-gd-goenka',
+      name: 'GD Goenka University',
+      shortName: 'GD Goenka',
+      slug: 'gd-goenka-university',
+      emailDomains: ['gdgoenka.ac.in'],
+      logoUrl: 'https://illustrations.popsy.co/blue/work-from-home.svg',
+      city: 'Gurugram',
+      state: 'Haryana',
+      country: 'India',
+      primaryColor: '#C41230',
+      status: CollegeStatus.ACTIVE,
+      domainVerificationStatus: 'VERIFIED',
+      institutionType: 'Private University',
+      website: 'https://www.gdgoenkauniversity.com',
+      address: 'GD Goenka Education City, Sohna-Gurgaon Road, Sohna, Gurugram, Haryana 122103',
+      contactEmail: 'lostfound@gdgoenka.ac.in',
+      contactPhone: '+91-124-331-5900',
+      domainMetadata: 'Verified official UGC-recognized university domain (gdgoenka.ac.in)',
+    },
+  });
+
+  const amityGurgaonCollege = await prisma.college.create({
+    data: {
+      id: 'college-amity-gurgaon',
+      name: 'Amity University Gurugram',
+      shortName: 'Amity Haryana',
+      slug: 'amity-university-gurugram',
+      emailDomains: ['ggn.amity.edu', 'amity.edu'],
+      logoUrl: 'https://illustrations.popsy.co/amber/student.svg',
+      city: 'Gurugram',
+      state: 'Haryana',
+      country: 'India',
+      primaryColor: '#004B87',
+      status: CollegeStatus.ACTIVE,
+      domainVerificationStatus: 'VERIFIED',
+      institutionType: 'Private University',
+      website: 'https://www.amity.edu/gurugram',
+      address: 'Amity Education Valley, Gurugram (Manesar), Haryana 122413',
+      contactEmail: 'lostfound@ggn.amity.edu',
+      contactPhone: '+91-124-233-7015',
+      domainMetadata: 'Verified institutional student email domain for Amity University Haryana cluster',
+    },
+  });
+
+  const sushantCollege = await prisma.college.create({
+    data: {
+      id: 'college-sushant',
+      name: 'Sushant University',
+      shortName: 'Sushant',
+      slug: 'sushant-university',
+      emailDomains: ['sushantuniversity.edu.in'],
+      logoUrl: 'https://illustrations.popsy.co/teal/presentation.svg',
+      city: 'Gurugram',
+      state: 'Haryana',
+      country: 'India',
+      primaryColor: '#0A4D68',
+      status: CollegeStatus.ACTIVE,
+      domainVerificationStatus: 'VERIFIED',
+      institutionType: 'Private University',
+      website: 'https://sushantuniversity.edu.in',
+      address: 'Golf Course Road, Huda, Sushant Lok II, Sector 55, Gurugram, Haryana 122003',
+      contactEmail: 'lostfound@sushantuniversity.edu.in',
+      contactPhone: '+91-124-475-0400',
+      domainMetadata: 'Verified official university domain registry (formerly Ansal University)',
+    },
+  });
+
+  const bmlMunjalCollege = await prisma.college.create({
+    data: {
+      id: 'college-bml-munjal',
+      name: 'BML Munjal University',
+      shortName: 'BMU',
+      slug: 'bml-munjal-university',
+      emailDomains: ['bml.edu.in'],
+      logoUrl: 'https://illustrations.popsy.co/blue/work-from-home.svg',
+      city: 'Gurugram',
+      state: 'Haryana',
+      country: 'India',
+      primaryColor: '#002D62',
+      status: CollegeStatus.ACTIVE,
+      domainVerificationStatus: 'VERIFIED',
+      institutionType: 'Private University',
+      website: 'https://www.bmu.edu.in',
+      address: '67th KM Stone, NH-48, Kapriwas, Gurugram, Haryana 122413',
+      contactEmail: 'lostfound@bml.edu.in',
+      contactPhone: '+91-124-267-9002',
+      domainMetadata: 'Hero Group founded university - verified institutional domain',
+    },
+  });
+
+  const krMangalamCollege = await prisma.college.create({
+    data: {
+      id: 'college-kr-mangalam',
+      name: 'K.R. Mangalam University',
+      shortName: 'KRMU',
+      slug: 'kr-mangalam-university',
+      emailDomains: ['krmangalam.edu.in'],
+      logoUrl: 'https://illustrations.popsy.co/amber/student.svg',
+      city: 'Gurugram',
+      state: 'Haryana',
+      country: 'India',
+      primaryColor: '#8B0000',
+      status: CollegeStatus.ACTIVE,
+      domainVerificationStatus: 'VERIFIED',
+      institutionType: 'Private University',
+      website: 'https://www.krmangalam.edu.in',
+      address: 'Sohna Road, Gurugram, Haryana 122103',
+      contactEmail: 'lostfound@krmangalam.edu.in',
+      contactPhone: '+91-124-286-7800',
+      domainMetadata: 'Verified official higher education institutional domain (krmangalam.edu.in)',
+    },
+  });
+
+  const gurugramUnivCollege = await prisma.college.create({
+    data: {
+      id: 'college-gurugram-univ',
+      name: 'Gurugram University',
+      shortName: 'GU',
+      slug: 'gurugram-university',
+      emailDomains: ['gurugramuniversity.ac.in'],
+      logoUrl: 'https://illustrations.popsy.co/teal/presentation.svg',
+      city: 'Gurugram',
+      state: 'Haryana',
+      country: 'India',
+      primaryColor: '#1E3A8A',
+      status: CollegeStatus.ACTIVE,
+      domainVerificationStatus: 'VERIFIED',
+      institutionType: 'State University',
+      website: 'https://gurugramuniversity.ac.in',
+      address: 'Mayfield Garden, Sector 51, Gurugram, Haryana 122003',
+      contactEmail: 'lostfound@gurugramuniversity.ac.in',
+      contactPhone: '+91-124-278-8000',
+      domainMetadata: 'Haryana State Government University - official ac.in domain',
+    },
+  });
+
+  const dronacharyaCollege = await prisma.college.create({
+    data: {
+      id: 'college-dronacharya',
+      name: 'Dronacharya College of Engineering',
+      shortName: 'DCE Gurugram',
+      slug: 'dronacharya-college-of-engineering',
+      emailDomains: ['ggn.dronacharya.info', 'dronacharya.info'],
+      logoUrl: 'https://illustrations.popsy.co/blue/work-from-home.svg',
+      city: 'Gurugram',
+      state: 'Haryana',
+      country: 'India',
+      primaryColor: '#15803D',
+      status: CollegeStatus.ACTIVE,
+      domainVerificationStatus: 'VERIFIED',
+      institutionType: 'Engineering College',
+      website: 'https://ggn.dronacharya.info',
+      address: 'Khentawas, Farrukhnagar, Gurugram, Haryana 122506',
+      contactEmail: 'lostfound@ggn.dronacharya.info',
+      contactPhone: '+91-124-237-5502',
+      domainMetadata: 'NAAC accredited engineering college in Gurugram',
+    },
+  });
+
+  const wudCollege = await prisma.college.create({
+    data: {
+      id: 'college-wud',
+      name: 'World University of Design',
+      shortName: 'WUD',
+      slug: 'world-university-of-design',
+      emailDomains: ['wud.ac.in'],
+      logoUrl: 'https://illustrations.popsy.co/amber/student.svg',
+      city: 'Sonipat',
+      state: 'Haryana',
+      country: 'India',
+      primaryColor: '#E11D48',
+      status: CollegeStatus.ACTIVE,
+      domainVerificationStatus: 'VERIFIED',
+      institutionType: 'Design University',
+      website: 'https://worlduniversityofdesign.ac.in',
+      address: 'Plot No. 1, Rajiv Gandhi Education City, Sonipat, Haryana 131029',
+      contactEmail: 'lostfound@wud.ac.in',
+      contactPhone: '+91-705-677-0065',
+      domainMetadata: 'India first design university - verified ac.in domain',
+    },
+  });
+
+  const starexCollege = await prisma.college.create({
+    data: {
+      id: 'college-starex',
+      name: 'Starex University',
+      shortName: 'Starex',
+      slug: 'starex-university',
+      emailDomains: ['starexuniversity.co.in'],
+      pendingDomains: ['starexuniversity.co.in'],
+      logoUrl: null,
+      city: 'Gurugram',
+      state: 'Haryana',
+      country: 'India',
+      primaryColor: '#4338CA',
+      status: CollegeStatus.ACTIVE,
+      domainVerificationStatus: 'PENDING_VERIFICATION',
+      institutionType: 'Private University',
+      website: 'https://www.starexuniversity.co.in',
+      address: 'NH-48, Binola, P.O. Bhorakalan, Gurugram, Haryana 122413',
+      contactEmail: 'info@starexuniversity.co.in',
+      contactPhone: '+91-124-201-4400',
+      domainMetadata: 'Pending DNS TXT record validation and official institutional registrar verification',
+    },
+  });
+
+  const kiitCollege = await prisma.college.create({
+    data: {
+      id: 'college-kiit-gurgaon',
+      name: 'KIIT College of Engineering',
+      shortName: 'KIIT Gurgaon',
+      slug: 'kiit-college-of-engineering',
+      emailDomains: ['kiit.in'],
+      pendingDomains: ['kiit.in'],
+      logoUrl: null,
+      city: 'Gurugram',
+      state: 'Haryana',
+      country: 'India',
+      primaryColor: '#D97706',
+      status: CollegeStatus.ACTIVE,
+      domainVerificationStatus: 'PENDING_VERIFICATION',
+      institutionType: 'Engineering College',
+      website: 'https://www.kiit.in',
+      address: 'KIIT Campus, Sohna Road, Bhondsi, Gurugram, Haryana 122102',
+      contactEmail: 'info@kiit.in',
+      contactPhone: '+91-124-265-8000',
+      domainMetadata: 'Pending administrative confirmation for institutional student email domain',
+    },
+  });
+
+  const gpManesarCollege = await prisma.college.create({
+    data: {
+      id: 'college-gp-manesar',
+      name: 'Government Polytechnic Manesar',
+      shortName: 'GP Manesar',
+      slug: 'govt-polytechnic-manesar',
+      emailDomains: ['gpmanesar.ac.in'],
+      pendingDomains: ['gpmanesar.ac.in'],
+      logoUrl: null,
+      city: 'Gurugram',
+      state: 'Haryana',
+      country: 'India',
+      primaryColor: '#374151',
+      status: CollegeStatus.ACTIVE,
+      domainVerificationStatus: 'PENDING_VERIFICATION',
+      institutionType: 'Government Polytechnic',
+      website: 'http://gpmanesar.ac.in',
+      address: 'Sector 1, HSIIDC, Manesar, Gurugram, Haryana 122051',
+      contactEmail: 'gpmanesar@hry.nic.in',
+      contactPhone: '+91-124-229-0242',
+      domainMetadata: 'State Technical Education Department institutional review pending',
+    },
+  });
+
+  console.log('🏛️  Seeded 24 Colleges (Including Greater Noida & Gurgaon Institutional Clusters).');
+
+  // ==============================================================================
+  // RELATIONAL COLLEGE EMAIL DOMAIN REGISTRY
+  // ==============================================================================
+  const allSeededColleges = [
+    apexCollege,
+    horizonCollege,
+    pacificCollege,
+    iilmUniversity,
+    galgotiasUniversity,
+    shardaUniversity,
+    bennettUniversity,
+    niuUniversity,
+    gbuUniversity,
+    glBajajCollege,
+    gniotCollege,
+    pendingCollege,
+    ncuCollege,
+    gdGoenkaCollege,
+    amityGurgaonCollege,
+    sushantCollege,
+    bmlMunjalCollege,
+    krMangalamCollege,
+    gurugramUnivCollege,
+    dronacharyaCollege,
+    wudCollege,
+    starexCollege,
+    kiitCollege,
+    gpManesarCollege,
+  ];
+
+  for (const college of allSeededColleges) {
+    for (let i = 0; i < college.emailDomains.length; i++) {
+      const domain = college.emailDomains[i].toLowerCase().trim();
+      const isVerified = college.domainVerificationStatus === 'VERIFIED';
+      await prisma.collegeEmailDomain.create({
+        data: {
+          collegeId: college.id,
+          domain,
+          verificationStatus: isVerified ? DomainStatus.VERIFIED : DomainStatus.PENDING_VERIFICATION,
+          verifiedAt: isVerified ? new Date() : null,
+          verificationSource: college.domainMetadata || 'Verified Institutional Registrar Registry',
+          isPrimary: i === 0,
+        },
+      });
+    }
+  }
+
+  console.log('🌐 Seeded CollegeEmailDomain Registry for all institutional domains.');
 
   // 3. Seed Campuses
   const apexNorth = await prisma.campus.create({
@@ -388,7 +723,164 @@ async function main() {
     },
   });
 
-  console.log('📍 Seeded Campuses (Including Greater Noida Hubs).');
+  // Gurgaon Campuses
+  const ncuMainCampus = await prisma.campus.create({
+    data: {
+      id: 'ncu-main',
+      collegeId: ncuCollege.id,
+      name: 'The NorthCap University Main Campus',
+      code: 'NCU-MAIN',
+      addressLabel: 'Huda, Sector 23-A, Gurugram, Haryana 122017',
+      lostFoundDeskRoom: 'Student Welfare & Security Desk, Ground Floor',
+      operatingHours: 'Mon - Fri: 8:30 AM - 5:30 PM',
+      contactEmail: 'lostfound@ncuindia.edu',
+    },
+  });
+
+  const gdGoenkaMainCampus = await prisma.campus.create({
+    data: {
+      id: 'gd-goenka-main',
+      collegeId: gdGoenkaCollege.id,
+      name: 'GD Goenka Education City Campus',
+      code: 'GDG-MAIN',
+      addressLabel: 'GD Goenka Education City, Sohna-Gurgaon Road, Gurugram 122103',
+      lostFoundDeskRoom: 'Central Administration Block Desk',
+      operatingHours: 'Mon - Sat: 9:00 AM - 5:00 PM',
+      contactEmail: 'lostfound@gdgoenka.ac.in',
+    },
+  });
+
+  const amityGurgaonMainCampus = await prisma.campus.create({
+    data: {
+      id: 'amity-ggn-main',
+      collegeId: amityGurgaonCollege.id,
+      name: 'Amity Manesar Innovation Campus',
+      code: 'AMITY-GGN',
+      addressLabel: 'Amity Education Valley, Manesar, Gurugram 122413',
+      lostFoundDeskRoom: 'Security & Proctorial Board Room 102',
+      operatingHours: 'Mon - Fri: 8:30 AM - 6:00 PM',
+      contactEmail: 'lostfound@ggn.amity.edu',
+    },
+  });
+
+  const sushantMainCampus = await prisma.campus.create({
+    data: {
+      id: 'sushant-main',
+      collegeId: sushantCollege.id,
+      name: 'Sushant University Golf Course Campus',
+      code: 'SUSHANT-MAIN',
+      addressLabel: 'Golf Course Road, Sector 55, Gurugram 122003',
+      lostFoundDeskRoom: 'Central Block Reception Desk',
+      operatingHours: 'Mon - Sat: 8:30 AM - 5:30 PM',
+      contactEmail: 'lostfound@sushantuniversity.edu.in',
+    },
+  });
+
+  const bmlMunjalMainCampus = await prisma.campus.create({
+    data: {
+      id: 'bml-main',
+      collegeId: bmlMunjalCollege.id,
+      name: 'BML Munjal University Highway Campus',
+      code: 'BMU-MAIN',
+      addressLabel: '67th KM Stone, NH-48, Sidhrawali, Gurugram 122413',
+      lostFoundDeskRoom: 'Student Hub & Security Operations Center',
+      operatingHours: 'Mon - Sat: 8:00 AM - 6:00 PM',
+      contactEmail: 'lostfound@bml.edu.in',
+    },
+  });
+
+  const krMangalamMainCampus = await prisma.campus.create({
+    data: {
+      id: 'krm-main',
+      collegeId: krMangalamCollege.id,
+      name: 'K.R. Mangalam Main Campus',
+      code: 'KRM-MAIN',
+      addressLabel: 'Sohna Road, Gurugram 122103',
+      lostFoundDeskRoom: 'Dean Office Lost & Found Section',
+      operatingHours: 'Mon - Sat: 9:00 AM - 5:00 PM',
+      contactEmail: 'lostfound@krmangalam.edu.in',
+    },
+  });
+
+  const gurugramUnivMainCampus = await prisma.campus.create({
+    data: {
+      id: 'gu-sec51-main',
+      collegeId: gurugramUnivCollege.id,
+      name: 'Sector 51 University Campus',
+      code: 'GU-SEC51',
+      addressLabel: 'Mayfield Garden, Sector 51, Gurugram 122003',
+      lostFoundDeskRoom: 'University Proctor Office Desk',
+      operatingHours: 'Mon - Fri: 9:00 AM - 5:00 PM',
+      contactEmail: 'lostfound@gurugramuniversity.ac.in',
+    },
+  });
+
+  const dronacharyaMainCampus = await prisma.campus.create({
+    data: {
+      id: 'dce-main',
+      collegeId: dronacharyaCollege.id,
+      name: 'Farrukhnagar Campus',
+      code: 'DCE-GGN',
+      addressLabel: 'Khentawas, Farrukhnagar, Gurugram 122506',
+      lostFoundDeskRoom: 'Administrative Wing Helpdesk',
+      operatingHours: 'Mon - Sat: 8:30 AM - 4:30 PM',
+      contactEmail: 'lostfound@ggn.dronacharya.info',
+    },
+  });
+
+  const wudMainCampus = await prisma.campus.create({
+    data: {
+      id: 'wud-main',
+      collegeId: wudCollege.id,
+      name: 'WUD Rajiv Gandhi Education City Campus',
+      code: 'WUD-MAIN',
+      addressLabel: 'Plot No. 1, Rajiv Gandhi Education City, Sonipat 131029',
+      lostFoundDeskRoom: 'Design Studio 1 Lost Property Corner',
+      operatingHours: 'Mon - Fri: 9:00 AM - 6:00 PM',
+      contactEmail: 'lostfound@wud.ac.in',
+    },
+  });
+
+  const starexMainCampus = await prisma.campus.create({
+    data: {
+      id: 'starex-main',
+      collegeId: starexCollege.id,
+      name: 'Starex Binola Campus',
+      code: 'STAREX-MAIN',
+      addressLabel: 'NH-48, Binola, Gurugram 122413',
+      lostFoundDeskRoom: 'Security Post 1 Gate Reception',
+      operatingHours: 'Mon - Sat: 9:00 AM - 5:00 PM',
+      contactEmail: 'info@starexuniversity.co.in',
+    },
+  });
+
+  const kiitMainCampus = await prisma.campus.create({
+    data: {
+      id: 'kiit-ggn-main',
+      collegeId: kiitCollege.id,
+      name: 'KIIT Bhondsi Campus',
+      code: 'KIIT-GGN',
+      addressLabel: 'Sohna Road, Bhondsi, Gurugram 122102',
+      lostFoundDeskRoom: 'Main Reception & Security Desk',
+      operatingHours: 'Mon - Sat: 9:00 AM - 5:00 PM',
+      contactEmail: 'info@kiit.in',
+    },
+  });
+
+  const gpManesarMainCampus = await prisma.campus.create({
+    data: {
+      id: 'gp-manesar-main',
+      collegeId: gpManesarCollege.id,
+      name: 'Government Polytechnic Manesar Campus',
+      code: 'GPM-MAIN',
+      addressLabel: 'Sector 1, HSIIDC, Manesar, Gurugram 122051',
+      lostFoundDeskRoom: 'Principal Office Support Desk',
+      operatingHours: 'Mon - Fri: 9:00 AM - 5:00 PM',
+      contactEmail: 'gpmanesar@hry.nic.in',
+    },
+  });
+
+  console.log('📍 Seeded Campuses (Including Greater Noida & Gurgaon Hubs).');
 
   // 4. Seed Campus Locations
   await prisma.campusLocation.create({

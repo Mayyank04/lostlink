@@ -17,6 +17,11 @@ describe('Phase 5 Distributed Hybrid Matching Architecture', () => {
   let foundItemId: string;
 
   beforeAll(async () => {
+    // 0. Clean any leftover matching jobs for this college so test assertions run on a clean queue
+    await prisma.matchingJob.deleteMany({
+      where: { collegeId: TEST_COLLEGE_ID },
+    });
+
     // 1. Create a dedicated campus worker key
     const generated = generateCampusApiKey();
     testWorkerKey = generated.key;

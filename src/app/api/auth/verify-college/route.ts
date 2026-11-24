@@ -9,7 +9,7 @@ import { MembershipStatus } from '@prisma/client';
 const verifySchema = z
   .object({
     email: z.string().email().toLowerCase().trim(),
-    collegeId: z.string().min(1, 'College ID is required'),
+    collegeId: z.string().optional(),
     otpCode: z.string().min(6, 'Verification code must be 6 digits').max(10).optional(),
     otp: z.string().min(6, 'Verification code must be 6 digits').max(10).optional(),
   })
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
       where: { email },
       include: {
         memberships: {
-          where: { collegeId },
+          where: collegeId ? { collegeId } : undefined,
           include: { college: true },
         },
       },

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireAuth, requirePlatformAdmin, errorResponse } from '@/lib/auth/tenant';
-import { CollegeStatus, UserRole, MembershipStatus } from '@prisma/client';
+import { CollegeStatus, UserRole, MembershipStatus, DomainStatus } from '@prisma/client';
 import { z } from 'zod';
 
 const domainRegex = /^[a-z0-9]+(-[a-z0-9]+)*(\.[a-z0-9]+(-[a-z0-9]+)*)+$/i;
@@ -75,6 +75,7 @@ export async function GET(req: NextRequest) {
     const state = searchParams.get('state');
     const city = searchParams.get('city');
     const institutionType = searchParams.get('institutionType');
+    const domainVerificationStatus = searchParams.get('domainVerificationStatus');
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20')));
     const skip = (page - 1) * limit;
@@ -82,6 +83,9 @@ export async function GET(req: NextRequest) {
     const where: any = { isArchived: false };
     if (status && status !== 'ALL') {
       where.status = status as CollegeStatus;
+    }
+    if (domainVerificationStatus && domainVerificationStatus !== 'ALL') {
+      where.domainVerificationStatus = { equals: domainVerificationStatus, mode: 'insensitive' };
     }
     if (country && country !== 'ALL') {
       where.country = { equals: country, mode: 'insensitive' };
@@ -113,6 +117,7 @@ export async function GET(req: NextRequest) {
         take: limit,
         orderBy: { createdAt: 'desc' },
         include: {
+          domains: true,
           _count: {
             select: {
               campuses: true,
@@ -199,6 +204,35 @@ export async function POST(req: NextRequest) {
           reviewNotes: validated.reviewNotes || null,
         },
       });
+
+      // 1b. Upsert CollegeEmailDomain records
+      for (let i = 0; i < emailDomains.length; i++) {
+        const dom = emailDomains[i];
+        await tx.collegeEmailDomain.upsert({
+          where: { domain: dom },
+          update: {
+            collegeId: college.id,
+            verificationStatus:
+              validated.domainVerificationStatus === 'VERIFIED'
+                ? DomainStatus.VERIFIED
+                : DomainStatus.PENDING_VERIFICATION,
+            verifiedAt: validated.domainVerificationStatus === 'VERIFIED' ? new Date() : null,
+            verificationSource: 'Provisioned by Platform Super-Admin',
+            isPrimary: i === 0,
+          },
+          create: {
+            collegeId: college.id,
+            domain: dom,
+            verificationStatus:
+              validated.domainVerificationStatus === 'VERIFIED'
+                ? DomainStatus.VERIFIED
+                : DomainStatus.PENDING_VERIFICATION,
+            verifiedAt: validated.domainVerificationStatus === 'VERIFIED' ? new Date() : null,
+            verificationSource: 'Provisioned by Platform Super-Admin',
+            isPrimary: i === 0,
+          },
+        });
+      }
 
       // 2. Create Initial Campus
       const initialCampusObj = typeof validated.initialCampus === 'object' ? validated.initialCampus : null;

@@ -28,14 +28,14 @@ interface AuthContextType {
   switchCollege: (collegeId: string) => void;
   switchCampus: (campusId: string) => void;
   loginAs: (email: string) => boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string; user?: any }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string; user?: any; redirectTo?: string }>;
   register: (data: {
     name: string;
     email: string;
     password: string;
-    collegeId: string;
+    collegeId?: string;
     studentId?: string;
-  }) => Promise<{ success: boolean; error?: string }>;
+  }) => Promise<{ success: boolean; error?: string; user?: any }>;
   logout: () => void | Promise<void>;
   resetDemoData: () => void;
   refreshUser: () => Promise<boolean>;
@@ -228,7 +228,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return false;
   };
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string; user?: any }> => {
+  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string; user?: any; redirectTo?: string }> => {
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
@@ -242,7 +242,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       await checkServerSession();
-      return { success: true, user: data.user };
+      return { success: true, user: data.user, redirectTo: data.redirectTo };
     } catch {
       return { success: false, error: 'Network error connecting to backend authentication server' };
     }
@@ -252,9 +252,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     name: string;
     email: string;
     password: string;
-    collegeId: string;
+    collegeId?: string;
     studentId?: string;
-  }): Promise<{ success: boolean; error?: string }> => {
+  }): Promise<{ success: boolean; error?: string; user?: any }> => {
     try {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
@@ -268,7 +268,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       await checkServerSession();
-      return { success: true };
+      return { success: true, user: resData.user };
     } catch {
       return { success: false, error: 'Network error connecting to backend' };
     }

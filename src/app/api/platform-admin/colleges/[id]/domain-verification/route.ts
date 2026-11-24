@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireAuth, requirePlatformAdmin, errorResponse } from '@/lib/auth/tenant';
-import { CollegeStatus } from '@prisma/client';
+import { CollegeStatus, DomainStatus } from '@prisma/client';
 import { z } from 'zod';
 
 const domainActionSchema = z.object({
@@ -34,6 +34,7 @@ export async function GET(
         name: true,
         slug: true,
         emailDomains: true,
+        domains: true,
         pendingDomains: true,
         domainVerificationStatus: true,
         domainMetadata: true,
@@ -161,6 +162,54 @@ export async function POST(
             : {}),
         },
       });
+
+      // Synchronize relational CollegeEmailDomain records
+      if (action === 'APPROVE') {
+        await tx.collegeEmailDomain.updateMany({
+          where: { collegeId: id },
+          data: {
+            verificationStatus: DomainStatus.VERIFIED,
+            verifiedAt: new Date(),
+          },
+        });
+      } else if (action === 'REJECT') {
+        await tx.collegeEmailDomain.updateMany({
+          where: { collegeId: id },
+          data: {
+            verificationStatus: DomainStatus.REJECTED,
+            verifiedAt: null,
+          },
+        });
+      } else if (action === 'REVOKE') {
+        await tx.collegeEmailDomain.updateMany({
+          where: { collegeId: id },
+          data: {
+            verificationStatus: DomainStatus.REVOKED,
+            verifiedAt: null,
+          },
+        });
+      } else if (action === 'ADD_DOMAIN' && domain) {
+        const cleanDomain = domain.trim().toLowerCase().replace(/^@/, '');
+        await tx.collegeEmailDomain.upsert({
+          where: { domain: cleanDomain },
+          update: {
+            collegeId: id,
+            verificationStatus: DomainStatus.PENDING_VERIFICATION,
+            verificationSource: reason,
+          },
+          create: {
+            collegeId: id,
+            domain: cleanDomain,
+            verificationStatus: DomainStatus.PENDING_VERIFICATION,
+            verificationSource: reason,
+          },
+        });
+      } else if (action === 'REMOVE_DOMAIN' && domain) {
+        const cleanDomain = domain.trim().toLowerCase().replace(/^@/, '');
+        await tx.collegeEmailDomain.deleteMany({
+          where: { domain: cleanDomain },
+        });
+      }
 
       await tx.auditLog.create({
         data: {

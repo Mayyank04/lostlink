@@ -2,44 +2,31 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
-import { SearchableCollegeSelector } from '@/components/colleges/SearchableCollegeSelector';
-import { CollegeSearchResult } from '@/components/colleges/CollegeCard';
-import { ShieldCheck, CheckCircle2, AlertCircle, Eye, EyeOff, XCircle } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, AlertCircle, Eye, EyeOff, Building2, ArrowRight, UserPlus } from 'lucide-react';
 
-const PUBLIC_EMAIL_DOMAINS = new Set([
-  'gmail.com',
-  'yahoo.com',
-  'outlook.com',
-  'hotmail.com',
-  'live.com',
-  'icloud.com',
-  'protonmail.com',
-  'proton.me',
-  'mail.com',
-  'aol.com',
-  'zoho.com',
-  'gmx.com',
-  'yandex.com',
-]);
+interface DetectedCollege {
+  id: string;
+  name: string;
+  shortName: string | null;
+  slug: string;
+  domain: string;
+  campusSlug?: string;
+  primaryColor?: string;
+  logoUrl?: string | null;
+}
 
 function RegisterForm() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const { allColleges, switchCollege, register } = useAuth();
+  const { register } = useAuth();
   const { success, error } = useToast();
 
-  const queryCollegeId = searchParams.get('college') || '';
-
-  const [colleges, setColleges] = useState<any[]>(allColleges);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [collegeId, setCollegeId] = useState(queryCollegeId || allColleges[0]?.id || '');
-  const [selectedCollegeObj, setSelectedCollegeObj] = useState<CollegeSearchResult | null>(null);
   const [studentId, setStudentId] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -47,136 +34,93 @@ function RegisterForm() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Dynamically load active colleges from database and resolve explicit query college ID
+  // Live campus auto-detection
+  const [detectedCollege, setDetectedCollege] = useState<DetectedCollege | null>(null);
+  const [detectionError, setDetectionError] = useState<string | null>(null);
+  const [isDetecting, setIsDetecting] = useState(false);
+
   useEffect(() => {
-    if (queryCollegeId) {
-      fetch(`/api/colleges/search?id=${encodeURIComponent(queryCollegeId)}`)
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (data?.colleges && data.colleges.length > 0) {
-            const targetCol = data.colleges[0];
-            setCollegeId(targetCol.id);
-            setSelectedCollegeObj(targetCol);
-            setColleges((prev) => {
-              if (prev.some((c) => c.id === targetCol.id)) return prev;
-              return [targetCol, ...prev];
-            });
-          }
-        })
-        .catch(() => {});
+    const trimmed = email.trim();
+    if (!trimmed.includes('@') || !trimmed.split('@')[1]?.includes('.')) {
+      setDetectedCollege(null);
+      setDetectionError(null);
+      setIsDetecting(false);
+      return;
     }
 
-    fetch('/api/colleges/search?limit=50')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.colleges && data.colleges.length > 0) {
-          setColleges((prev) => {
-            const combined = [...prev];
-            for (const col of data.colleges) {
-              if (!combined.some((c) => c.id === col.id)) {
-                combined.push(col);
-              }
-            }
-            return combined;
-          });
-          if (!queryCollegeId && !collegeId) {
-            setCollegeId(data.colleges[0].id);
-            setSelectedCollegeObj(data.colleges[0]);
-          }
+    const timer = setTimeout(async () => {
+      setIsDetecting(true);
+      setDetectionError(null);
+      try {
+        const res = await fetch(`/api/auth/resolve-college?email=${encodeURIComponent(trimmed)}`);
+        const data = await res.json();
+        if (res.ok && data.success && data.college) {
+          setDetectedCollege(data.college);
+          setDetectionError(null);
+        } else {
+          setDetectedCollege(null);
+          setDetectionError(data.message || 'Domain not recognized');
         }
-      })
-      .catch(() => {});
-  }, [queryCollegeId]);
+      } catch {
+        setDetectedCollege(null);
+        setDetectionError('Unable to verify university domain');
+      } finally {
+        setIsDetecting(false);
+      }
+    }, 280);
 
-  const selectedCollege = selectedCollegeObj || colleges.find((c) => c.id === collegeId);
-  const isCollegeVerified = Boolean(
-    selectedCollege &&
-      (selectedCollege.domainVerificationStatus === 'VERIFIED' || selectedCollege.isVerified)
-  );
-  const emailDomain = email.includes('@') ? email.split('@')[1]?.toLowerCase().trim() : '';
+    return () => clearTimeout(timer);
+  }, [email]);
 
-  const isPublicProvider = emailDomain ? PUBLIC_EMAIL_DOMAINS.has(emailDomain) : false;
-
-  const isDomainAllowed = Boolean(
-    emailDomain &&
-      !isPublicProvider &&
-      selectedCollege &&
-      (selectedCollege.emailDomains?.some((d: string) => d.toLowerCase().trim() === emailDomain) ||
-        selectedCollege.domain?.toLowerCase().trim() === emailDomain)
-  );
-
-  const handleRegister = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!name.trim()) {
-      error('Input Error', 'Please enter your full name.');
+      error('Name Required', 'Please enter your full name.');
       return;
     }
+
     if (!email.trim()) {
-      error('Input Error', 'Please enter your institutional email address.');
-      return;
-    }
-    if (!collegeId) {
-      error('Selection Required', 'Please select your enrolled university before registering.');
+      error('Email Required', 'Please enter your institutional email.');
       return;
     }
 
-    if (!isCollegeVerified) {
+    if (!detectedCollege) {
       error(
-        'Institution Pending Verification',
-        'Student registration is not permitted until the university domain has been officially verified by platform administrators.'
+        'Valid Institutional Email Required',
+        detectionError || 'Please provide an official university-issued email to identify your campus.'
       );
-      return;
-    }
-
-    if (isPublicProvider) {
-      error(
-        'Public Email Disallowed',
-        'Personal email addresses (e.g. Gmail, Yahoo, Outlook) cannot be used. Please register with your official university email.'
-      );
-      return;
-    }
-
-    if (!isDomainAllowed) {
-      error(
-        'Domain Mismatch',
-        `Your email domain "@${emailDomain}" is not authorized for ${selectedCollege?.name || 'the selected university'}.`
-      );
-      return;
-    }
-
-    if (!password) {
-      error('Password Required', 'Please create a secure password.');
       return;
     }
 
     if (password.length < 8) {
-      error('Password Too Short', 'Password must be at least 8 characters in length.');
+      error('Password Too Short', 'Password must be at least 8 characters long.');
       return;
     }
 
     if (password !== confirmPassword) {
-      error('Password Mismatch', 'The passwords entered do not match. Please verify and retype.');
+      error('Passwords Do Not Match', 'Please ensure both password fields match exactly.');
       return;
     }
 
     setIsLoading(true);
+
     try {
       const res = await register({
         name: name.trim(),
         email: email.trim().toLowerCase(),
         password,
-        collegeId,
         studentId: studentId.trim() || undefined,
+        collegeId: detectedCollege.id,
       });
 
       if (res.success) {
-        switchCollege(collegeId);
         success(
           'Verification Code Dispatched',
-          'A 6-digit confirmation code was dispatched to your institutional inbox. Please enter the OTP to activate your account.'
+          `We sent an institutional verification code to ${email.trim()}.`
         );
         router.push(
-          `/auth/verify-college?email=${encodeURIComponent(email.trim().toLowerCase())}&college=${encodeURIComponent(collegeId)}`
+          `/auth/verify-college?email=${encodeURIComponent(email.trim().toLowerCase())}&college=${encodeURIComponent(detectedCollege.id)}`
         );
       } else {
         error('Registration Failed', res.error || 'Could not complete registration.');
@@ -189,174 +133,178 @@ function RegisterForm() {
   };
 
   return (
-    <div className="container mx-auto px-4 sm:px-6 py-12 max-w-md space-y-6">
-      <div className="text-center space-y-2">
-        <div className="w-12 h-12 rounded-2xl bg-brandTeal-700 text-white flex items-center justify-center font-black text-xl mx-auto shadow-md">
-          L
-        </div>
-        <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-          Create Student Account
-        </h1>
-        <p className="text-xs text-slate-500">
-          Federated institutional lost-and-found registry across partner universities
-        </p>
-      </div>
-
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-card space-y-5">
-        <form onSubmit={handleRegister} className="space-y-4 text-xs">
+    <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm space-y-5">
+      <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+        <div>
           <Input
             label="Full Name *"
+            type="text"
             placeholder="Maya Lin"
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
             autoComplete="name"
           />
+        </div>
 
-          {/* Searchable College Selector */}
-          <div>
-            <SearchableCollegeSelector
-              selectedCollegeId={collegeId}
-              onSelectCollege={(col) => {
-                setCollegeId(col.id);
-                setSelectedCollegeObj(col);
-              }}
-            />
-            {selectedCollege && (
-              <p className="text-[10px] text-brandTeal-600 dark:text-brandTeal-400 mt-1 font-mono">
-                Approved institutional domain(s): @
-                {selectedCollege.emailDomains?.join(', @') || selectedCollege.domain}
-              </p>
-            )}
-            {selectedCollege && !isCollegeVerified && (
-              <div className="mt-2 p-2.5 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                <span>Selected institution is awaiting official domain verification. Registrations are disabled until verified.</span>
-              </div>
-            )}
-          </div>
-
-          <div>
-            <Input
-              label="Official Institutional Email *"
-              type="email"
-              placeholder={`student@${selectedCollege?.domain || selectedCollege?.emailDomains?.[0] || 'institution.edu'}`}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-            />
-
-            {/* Real-time Domain Verification Status Indicator */}
-            {emailDomain && (
-              <div className="mt-1.5 p-2 rounded-lg text-[11px] leading-tight">
-                {isPublicProvider ? (
-                  <div className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 font-semibold bg-rose-50 dark:bg-rose-950/40 p-2 rounded-lg border border-rose-200 dark:border-rose-900">
-                    <XCircle className="w-4 h-4 shrink-0" />
-                    <span>Personal email (@{emailDomain}) rejected. Please use your official university email.</span>
-                  </div>
-                ) : isDomainAllowed ? (
-                  <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-semibold bg-emerald-50 dark:bg-emerald-950/40 p-2 rounded-lg border border-emerald-200 dark:border-emerald-900">
-                    <CheckCircle2 className="w-4 h-4 shrink-0" />
-                    <span>Approved institutional domain (@{emailDomain}) verified for {selectedCollege?.name}</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400 font-medium bg-amber-50 dark:bg-amber-950/40 p-2 rounded-lg border border-amber-200 dark:border-amber-900">
-                    <AlertCircle className="w-4 h-4 shrink-0" />
-                    <span>
-                      Domain @{emailDomain} does not match {selectedCollege?.name || 'the selected university'}.
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
+        <div>
           <Input
-            label="Student Identification Number (Optional)"
-            placeholder="e.g. APX-2027-4921 or IILM-2026-8801"
+            label="Institutional University Email *"
+            type="email"
+            placeholder="student@institution.edu"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoComplete="email"
+          />
+          <p className="mt-1 text-[11px] text-slate-500">
+            Use your official college-issued address (e.g. @ncuindia.edu, @apex.edu). Personal email providers are rejected.
+          </p>
+        </div>
+
+        {/* Live Institutional Campus Detection Display */}
+        {isDetecting && (
+          <div className="flex items-center gap-2 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 text-[11px] text-slate-500">
+            <div className="w-3.5 h-3.5 border-2 border-brandTeal-600 border-t-transparent rounded-full animate-spin" />
+            <span>Auto-detecting campus from institutional email domain...</span>
+          </div>
+        )}
+
+        {detectedCollege && !isDetecting && (
+          <div className="flex items-center gap-3 p-3.5 rounded-xl border border-teal-200 dark:border-teal-800/60 bg-teal-50/50 dark:bg-teal-950/20 text-xs animate-in fade-in duration-200">
+            <div
+              className="w-10 h-10 rounded-xl text-white font-bold flex items-center justify-center text-sm shrink-0 shadow-sm"
+              style={{ backgroundColor: detectedCollege.primaryColor || '#0F766E' }}
+            >
+              {detectedCollege.shortName ? detectedCollege.shortName.charAt(0) : detectedCollege.name.charAt(0)}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 font-semibold text-slate-900 dark:text-white">
+                <span className="truncate">{detectedCollege.name}</span>
+                <CheckCircle2 className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
+              </div>
+              <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                Verified Campus Domain • @{detectedCollege.domain}
+              </div>
+              <div className="text-[10px] text-teal-700 dark:text-teal-300 font-medium mt-0.5">
+                Campus Assigned Automatically — No Manual Selection
+              </div>
+            </div>
+          </div>
+        )}
+
+        {detectionError && !isDetecting && email.includes('@') && (
+          <div className="flex items-start gap-2.5 p-3 rounded-xl border border-amber-200 dark:border-amber-800/60 bg-amber-50/40 dark:bg-amber-950/20 text-[11px] text-amber-800 dark:text-amber-300">
+            <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+            <div>{detectionError}</div>
+          </div>
+        )}
+
+        <div>
+          <Input
+            label="Student Identifier (Optional)"
+            type="text"
+            placeholder="e.g. 21CS042"
             value={studentId}
             onChange={(e) => setStudentId(e.target.value)}
           />
+          <p className="mt-1 text-[11px] text-slate-500">
+            Used only for internal ownership verification by campus staff; never shown publicly.
+          </p>
+        </div>
 
-          {/* Password with toggle */}
-          <div className="space-y-1.5">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-              Create Password * (min. 8 characters)
-            </label>
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                placeholder="At least 8 characters"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete="new-password"
-                className="flex h-10 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 pr-10 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brandTeal-600 focus:border-transparent transition-colors"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-              >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
+        <div className="space-y-1.5">
+          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+            Password *
+          </label>
+          <div className="relative">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              placeholder="••••••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              autoComplete="new-password"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brandTeal-500/20 focus:border-brandTeal-600 transition"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+              tabIndex={-1}
+            >
+              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
           </div>
+          <p className="text-[11px] text-slate-500">Minimum 8 characters.</p>
+        </div>
 
-          {/* Confirm Password with toggle */}
-          <div className="space-y-1.5">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-              Confirm Password *
-            </label>
-            <div className="relative">
-              <input
-                type={showConfirmPassword ? 'text' : 'password'}
-                placeholder="Repeat password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                autoComplete="new-password"
-                className="flex h-10 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 pr-10 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brandTeal-600 focus:border-transparent transition-colors"
-              />
-              <button
-                type="button"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
-              >
-                {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-            {password && confirmPassword && password !== confirmPassword && (
-              <p className="text-[11px] text-rose-600 font-medium">Passwords do not match.</p>
-            )}
+        <div className="space-y-1.5">
+          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+            Confirm Password *
+          </label>
+          <div className="relative">
+            <input
+              type={showConfirmPassword ? 'text' : 'password'}
+              placeholder="••••••••••••"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              autoComplete="new-password"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brandTeal-500/20 focus:border-brandTeal-600 transition"
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+              tabIndex={-1}
+            >
+              {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
           </div>
+        </div>
 
-          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 flex items-start gap-2">
-            <ShieldCheck className="w-4 h-4 text-brandTeal-600 shrink-0 mt-0.5" />
-            <span>
-              Cryptographic Argon2id password hashing and 6-digit email OTP verification safeguard your institutional identity.
-            </span>
-          </div>
+        <Button
+          type="submit"
+          variant="primary"
+          className="w-full flex items-center justify-center gap-2 py-2.5 font-semibold text-xs mt-2"
+          disabled={isLoading || !detectedCollege}
+        >
+          {isLoading ? (
+            'Creating Institutional Account...'
+          ) : (
+            <>
+              Register Verified Account
+              <ArrowRight className="w-3.5 h-3.5" />
+            </>
+          )}
+        </Button>
+      </form>
 
-          <Button
-            type="submit"
-            variant="primary"
-            size="md"
-            className="w-full text-xs font-bold bg-brandTeal-700 hover:bg-brandTeal-800"
-            isLoading={isLoading}
-            disabled={!isDomainAllowed || isPublicProvider || !isCollegeVerified || (Boolean(password) && password !== confirmPassword)}
-          >
-            Continue to Email Verification
-          </Button>
-        </form>
-
-        <div className="pt-2 text-center text-xs text-slate-500 border-t border-slate-100 dark:border-slate-800">
+      <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-center space-y-2">
+        <p className="text-xs text-slate-500">
           Already registered?{' '}
-          <Link href="/auth/login" className="font-bold text-brandTeal-700 dark:text-brandTeal-400 hover:underline">
-            Sign In Instead
+          <Link
+            href="/login"
+            className="font-semibold text-brandTeal-700 dark:text-brandTeal-400 hover:underline"
+          >
+            Sign In to Campus
+          </Link>
+        </p>
+
+        <div className="pt-2 flex items-center justify-center gap-4 text-[11px] text-slate-400">
+          <Link
+            href="/college-admin/login"
+            className="hover:text-slate-700 dark:hover:text-slate-200 transition underline underline-offset-2"
+          >
+            College Admin Portal
+          </Link>
+          <span>•</span>
+          <Link
+            href="/platform-admin/login"
+            className="hover:text-slate-700 dark:hover:text-slate-200 transition underline underline-offset-2"
+          >
+            Platform Super-Admin
           </Link>
         </div>
       </div>
@@ -366,14 +314,22 @@ function RegisterForm() {
 
 export default function RegisterPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-[50vh] flex items-center justify-center text-xs text-slate-400">
-          Loading registration portal...
+    <div className="container mx-auto px-4 sm:px-6 py-12 max-w-md space-y-6">
+      <div className="text-center space-y-2">
+        <div className="w-12 h-12 rounded-2xl bg-brandTeal-700 text-white flex items-center justify-center font-black text-xl mx-auto shadow-sm">
+          <UserPlus className="w-6 h-6" />
         </div>
-      }
-    >
-      <RegisterForm />
-    </Suspense>
+        <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+          Create Student Account
+        </h1>
+        <p className="text-xs text-slate-500 max-w-sm mx-auto">
+          Enter your university email. Your college and campus network are automatically identified and verified.
+        </p>
+      </div>
+
+      <Suspense fallback={<div className="p-8 text-center text-xs text-slate-500">Loading registration form...</div>}>
+        <RegisterForm />
+      </Suspense>
+    </div>
   );
 }

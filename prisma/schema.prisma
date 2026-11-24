@@ -91,6 +91,13 @@ enum WorkerType {
   CLOUD_FALLBACK
 }
 
+enum DomainStatus {
+  VERIFIED
+  PENDING_VERIFICATION
+  REJECTED
+  REVOKED
+}
+
 // ------------------------------------------------------------------------------
 // COLLEGE & CAMPUS HIERARCHY
 // ------------------------------------------------------------------------------
@@ -128,12 +135,31 @@ model College {
   campusWorkerKeys CampusWorkerKey[]
   adminInvitations CollegeAdminInvitation[]
   moderationActions ModerationAction[]
+  domains          CollegeEmailDomain[]
 
   @@index([status])
   @@index([slug])
   @@index([name])
   @@index([shortName])
   @@index([country, state, city])
+}
+
+model CollegeEmailDomain {
+  id                 String           @id @default(cuid())
+  collegeId          String
+  domain             String           @unique
+  verificationStatus DomainStatus     @default(PENDING_VERIFICATION)
+  verifiedAt         DateTime?
+  verificationSource String?
+  isPrimary          Boolean          @default(false)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  college            College          @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+
+  @@index([domain])
+  @@index([collegeId])
+  @@index([verificationStatus])
 }
 
 model Campus {

@@ -10,7 +10,7 @@ interface CollegeSwitcherProps {
 }
 
 export const CollegeSwitcher: React.FC<CollegeSwitcherProps> = ({ compact = false }) => {
-  const { activeCollege, allColleges, switchCollege, activeCampus, switchCampus } = useAuth();
+  const { user, activeCollege, allColleges, switchCollege, activeCampus, switchCampus } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [searchFilter, setSearchFilter] = useState('');
   const dropdownRef = React.useRef<HTMLDivElement>(null);
@@ -24,6 +24,28 @@ export const CollegeSwitcher: React.FC<CollegeSwitcherProps> = ({ compact = fals
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Strict Campus Authority: Students cannot manually select or switch campus
+  if (user && user.role === 'student') {
+    return (
+      <div
+        className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-800 dark:text-slate-200 shadow-sm"
+        title="Assigned Verified Campus"
+      >
+        <div className="w-5 h-5 rounded-full bg-brandTeal-100 dark:bg-brandTeal-950 flex items-center justify-center text-brandTeal-700 dark:text-brandTeal-300 shrink-0">
+          <School className="w-3.5 h-3.5" />
+        </div>
+        <div className="flex flex-col text-left">
+          <span className="font-semibold truncate max-w-[150px]">
+            {compact ? (activeCollege.shortName || activeCollege.name) : activeCollege.name}
+          </span>
+          <span className="text-[10px] text-teal-600 dark:text-teal-400 font-medium truncate max-w-[150px]">
+            Verified Campus
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   const filteredColleges = allColleges.filter((c) => {
     if (!searchFilter.trim()) return true;

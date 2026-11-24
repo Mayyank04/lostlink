@@ -83,8 +83,21 @@ export async function POST(req: Request) {
       },
     }).catch(() => {});
 
+    let redirectTo = '/dashboard';
+    if (user.role === 'PLATFORM_ADMIN') {
+      redirectTo = '/platform-admin';
+    } else if (user.role === 'COLLEGE_ADMIN' || user.role === 'COLLEGE_MODERATOR') {
+      redirectTo = '/college-admin';
+    } else {
+      const verifiedMembership = user.memberships.find((m) => m.status === 'VERIFIED');
+      if (verifiedMembership?.college?.slug) {
+        redirectTo = `/campus/${verifiedMembership.college.slug}/dashboard`;
+      }
+    }
+
     return NextResponse.json({
       message: 'Logged in successfully',
+      redirectTo,
       user: {
         id: user.id,
         name: user.name,

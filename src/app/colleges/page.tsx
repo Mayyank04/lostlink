@@ -27,8 +27,8 @@ import Link from 'next/link';
 function CollegesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { switchCollege, activeCollege } = useAuth();
-  const { success } = useToast();
+  const { user, switchCollege, activeCollege } = useAuth();
+  const { success, error } = useToast();
 
   const flowParam = searchParams.get('flow');
   const selectParam = searchParams.get('select');
@@ -196,6 +196,15 @@ function CollegesPageContent() {
   };
 
   const handleConfirmSwitch = (col: CollegeSearchResult) => {
+    if (user && user.role === 'student') {
+      error(
+        'Campus Switching Restricted',
+        'Your account is permanently assigned to your verified institutional campus. Students cannot switch campuses.'
+      );
+      setConfirmModalCollege(null);
+      return;
+    }
+
     switchCollege(col.id);
     success('College Selected', `Active campus scope switched to ${col.name}.`);
     setConfirmModalCollege(null);

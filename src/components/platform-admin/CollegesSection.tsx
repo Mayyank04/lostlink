@@ -36,6 +36,7 @@ export function CollegesSection({ initialAddOpen = false }: { initialAddOpen?: b
   const [countryFilter, setCountryFilter] = useState('');
   const [availableCountries, setAvailableCountries] = useState<string[]>(['India', 'United States']);
   const [typeFilter, setTypeFilter] = useState('');
+  const [domainVerificationFilter, setDomainVerificationFilter] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
@@ -44,7 +45,12 @@ export function CollegesSection({ initialAddOpen = false }: { initialAddOpen?: b
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [domainModalOpen, setDomainModalOpen] = useState(false);
   const [selectedCollege, setSelectedCollege] = useState<any>(null);
+  const [selectedDomainCollege, setSelectedDomainCollege] = useState<any>(null);
+  const [newDomainInput, setNewDomainInput] = useState('');
+  const [verificationReason, setVerificationReason] = useState('');
+  const [isDomainSubmitting, setIsDomainSubmitting] = useState(false);
 
   // Add College Form State
   const [name, setName] = useState('');
@@ -92,6 +98,7 @@ export function CollegesSection({ initialAddOpen = false }: { initialAddOpen?: b
       if (statusFilter) params.set('status', statusFilter);
       if (countryFilter) params.set('country', countryFilter);
       if (typeFilter) params.set('institutionType', typeFilter);
+      if (domainVerificationFilter) params.set('domainVerificationStatus', domainVerificationFilter);
       params.set('page', page.toString());
       params.set('limit', '10');
 
@@ -123,7 +130,48 @@ export function CollegesSection({ initialAddOpen = false }: { initialAddOpen?: b
 
   useEffect(() => {
     loadColleges();
-  }, [search, statusFilter, countryFilter, typeFilter, page]);
+  }, [search, statusFilter, countryFilter, typeFilter, domainVerificationFilter, page]);
+
+  const openDomainModal = (col: any) => {
+    setSelectedDomainCollege(col);
+    setNewDomainInput('');
+    setVerificationReason('Official institutional accreditation registry check');
+    setDomainModalOpen(true);
+  };
+
+  const handleDomainAction = async (action: string, domainParam?: string) => {
+    if (!selectedDomainCollege) return;
+    setIsDomainSubmitting(true);
+    try {
+      const res = await fetch(
+        `/api/platform-admin/colleges/${selectedDomainCollege.id}/domain-verification`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action,
+            reason: verificationReason || 'Platform administrator action',
+            domain: domainParam || newDomainInput || undefined,
+          }),
+        }
+      );
+      const data = await res.json();
+      if (res.ok && data.success) {
+        success('Domain Updated', data.message || 'Domain verification updated successfully.');
+        if (data.college) {
+          setSelectedDomainCollege(data.college);
+        }
+        setNewDomainInput('');
+        loadColleges();
+      } else {
+        error('Domain Action Failed', data.error || 'Failed to update domain verification.');
+      }
+    } catch (err: any) {
+      error('Network Error', err.message);
+    } finally {
+      setIsDomainSubmitting(false);
+    }
+  };
 
   // Handle Add College Submit
   const handleAddCollege = async (e: React.FormEvent) => {
@@ -443,6 +491,21 @@ export function CollegesSection({ initialAddOpen = false }: { initialAddOpen?: b
           <option value="Polytechnic">Polytechnic</option>
           <option value="Institute">Institute</option>
         </select>
+
+        <select
+          value={domainVerificationFilter}
+          onChange={(e) => {
+            setDomainVerificationFilter(e.target.value);
+            setPage(1);
+          }}
+          className="w-full sm:w-40 py-2 px-3 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+        >
+          <option value="">All Verification</option>
+          <option value="VERIFIED">Verified Domains</option>
+          <option value="PENDING_VERIFICATION">Pending Verification</option>
+          <option value="UNDER_REVIEW">Under Review</option>
+          <option value="REJECTED">Rejected</option>
+        </select>
       </div>
 
       {/* Colleges Table */}
@@ -457,6 +520,7 @@ export function CollegesSection({ initialAddOpen = false }: { initialAddOpen?: b
                 <th className="p-3.5">Students</th>
                 <th className="p-3.5">Reports</th>
                 <th className="p-3.5">Status</th>
+                <th className="p-3.5">Verification</th>
                 <th className="p-3.5 text-right">Actions</th>
               </tr>
             </thead>
@@ -518,6 +582,19 @@ export function CollegesSection({ initialAddOpen = false }: { initialAddOpen?: b
                         {col.status}
                       </span>
                     </td>
+                    <td className="p-3.5">
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          col.domainVerificationStatus === 'VERIFIED'
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                            : col.domainVerificationStatus === 'UNDER_REVIEW'
+                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
+                            : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                        }`}
+                      >
+                        {col.domainVerificationStatus || 'PENDING'}
+                      </span>
+                    </td>
                     <td className="p-3.5 text-right space-x-1">
                       <button
                         onClick={() => openViewModal(col)}
@@ -534,6 +611,14 @@ export function CollegesSection({ initialAddOpen = false }: { initialAddOpen?: b
                       >
                         <Edit2 className="w-3.5 h-3.5 inline mr-1" />
                         Edit
+                      </button>
+                      <button
+                        onClick={() => openDomainModal(col)}
+                        className="px-2 py-1 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 hover:bg-emerald-100"
+                        title="Manage Institutional Domains"
+                      >
+                        <Globe className="w-3.5 h-3.5 inline mr-1" />
+                        Domains
                       </button>
                       {col.status === 'PENDING' && (
                         <button
@@ -897,6 +982,124 @@ export function CollegesSection({ initialAddOpen = false }: { initialAddOpen?: b
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* Domain Verification Management Modal */}
+      <Modal
+        isOpen={domainModalOpen}
+        onClose={() => setDomainModalOpen(false)}
+        title={`Domain Governance — ${selectedDomainCollege?.name || 'Institution'}`}
+        description="Verify, approve, or manage authorized institutional email domains for student authentication."
+        maxWidth="md"
+      >
+        {selectedDomainCollege && (
+          <div className="space-y-4 text-xs">
+            <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-slate-700 dark:text-slate-300">Verification Status</span>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    selectedDomainCollege.domainVerificationStatus === 'VERIFIED'
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                      : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                  }`}
+                >
+                  {selectedDomainCollege.domainVerificationStatus || 'PENDING'}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500">
+                {selectedDomainCollege.domainVerificationStatus === 'VERIFIED'
+                  ? 'Students can register and sign in using authorized institutional domains.'
+                  : 'Student registration is locked until domain verification is approved.'}
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                Authorized Domains ({selectedDomainCollege.emailDomains?.length || 0})
+              </label>
+              <div className="space-y-1.5">
+                {selectedDomainCollege.emailDomains?.map((dom: string) => (
+                  <div
+                    key={dom}
+                    className="flex items-center justify-between p-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
+                  >
+                    <span className="font-mono text-purple-700 dark:text-purple-300 font-semibold">
+                      @{dom}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={isDomainSubmitting || selectedDomainCollege.emailDomains?.length <= 1}
+                      onClick={() => handleDomainAction('REMOVE_DOMAIN', dom)}
+                      className="text-[11px] text-rose-600 hover:underline disabled:opacity-40"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                Add Additional Approved Domain
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="e.g. students.institution.edu"
+                  value={newDomainInput}
+                  onChange={(e) => setNewDomainInput(e.target.value)}
+                  className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
+                />
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={!newDomainInput.trim() || isDomainSubmitting}
+                  onClick={() => handleDomainAction('ADD_DOMAIN')}
+                >
+                  Add Domain
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                Audit Reason / Verification Source
+              </label>
+              <input
+                type="text"
+                value={verificationReason}
+                onChange={(e) => setVerificationReason(e.target.value)}
+                placeholder="e.g. Verified via university DNS TXT record / UGC registry"
+                className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
+              />
+            </div>
+
+            <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-2">
+              {selectedDomainCollege.domainVerificationStatus !== 'VERIFIED' ? (
+                <Button
+                  size="sm"
+                  variant="primary"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  disabled={isDomainSubmitting}
+                  onClick={() => handleDomainAction('APPROVE')}
+                >
+                  Approve Institutional Domains
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={isDomainSubmitting}
+                  onClick={() => handleDomainAction('REVOKE')}
+                >
+                  Revoke Verification
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );
