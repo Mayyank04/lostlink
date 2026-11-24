@@ -290,7 +290,18 @@ export default function HomePage() {
                 Report Discovered Property
               </Button>
             </Link>
+            <Link href="/login">
+              <Button size="lg" variant="outline" className="gap-2 rounded-lg shadow-xs font-semibold border-slate-300 dark:border-slate-700">
+                Student Campus Sign In
+              </Button>
+            </Link>
           </div>
+          <p className="text-xs text-slate-500">
+            First time using LostLink on your campus?{' '}
+            <Link href="/register" className="font-semibold text-brandTeal-700 dark:text-brandTeal-400 hover:underline">
+              Register Student Account
+            </Link>
+          </p>
 
           {/* System Capabilities Ribbon */}
           <div className="pt-6 border-t border-slate-200 dark:border-slate-800/80 max-w-3xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-4 text-left">

@@ -34,9 +34,12 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Onboarding is exclusively for students' }, { status: 403 });
     }
 
-    const verifiedMembership = user.memberships.find((m) => m.status === 'VERIFIED') || user.memberships[0];
-    if (!verifiedMembership) {
-      return NextResponse.json({ error: 'No college membership found' }, { status: 400 });
+    const verifiedMembership = user.memberships.find((m) => m.status === 'VERIFIED');
+    if (!verifiedMembership || !user.emailVerified) {
+      return NextResponse.json(
+        { error: 'Institutional college membership and email must be verified via OTP before accessing onboarding.' },
+        { status: 403 }
+      );
     }
 
     const profile = await prisma.studentProfile.findUnique({
@@ -91,10 +94,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Onboarding is exclusively for students' }, { status: 403 });
     }
 
-    const verifiedMembership = user.memberships.find((m) => m.status === 'VERIFIED') || user.memberships[0];
-    if (!verifiedMembership) {
+    const verifiedMembership = user.memberships.find((m) => m.status === 'VERIFIED');
+    if (!verifiedMembership || !user.emailVerified) {
       return NextResponse.json(
-        { error: 'Institutional college membership must be verified before completing onboarding.' },
+        { error: 'Institutional college membership and email must be verified via OTP before completing onboarding.' },
         { status: 403 }
       );
     }

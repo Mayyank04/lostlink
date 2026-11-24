@@ -89,13 +89,13 @@ export async function POST(req: Request) {
     } else if (user.role === 'COLLEGE_ADMIN' || user.role === 'COLLEGE_MODERATOR') {
       redirectTo = '/college-admin';
     } else {
-      if (!user.isOnboarded) {
+      const verifiedMembership = user.memberships.find((m) => m.status === 'VERIFIED');
+      if (!user.emailVerified || !verifiedMembership) {
+        redirectTo = '/auth/verify-college';
+      } else if (!user.isOnboarded) {
         redirectTo = '/onboarding/student';
-      } else {
-        const verifiedMembership = user.memberships.find((m) => m.status === 'VERIFIED');
-        if (verifiedMembership?.college?.slug) {
-          redirectTo = `/campus/${verifiedMembership.college.slug}/dashboard`;
-        }
+      } else if (verifiedMembership?.college?.slug) {
+        redirectTo = `/campus/${verifiedMembership.college.slug}/dashboard`;
       }
     }
 

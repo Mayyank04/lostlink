@@ -71,7 +71,7 @@ export default function CampusDashboardPage() {
           setCollege(targetCol);
 
           // Tenant boundary check: if user is student, ensure they belong to this college
-          if (user && user.role === 'student' && user.collegeId && user.collegeId !== targetCol.id) {
+          if (user && user.role?.toLowerCase() === 'student' && user.collegeId && user.collegeId !== targetCol.id) {
             setTenantViolation(
               `You are assigned to another institutional campus. Tenant isolation restricts cross-campus access.`
             );

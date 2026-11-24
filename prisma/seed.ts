@@ -398,7 +398,7 @@ async function main() {
       name: 'BML Munjal University',
       shortName: 'BMU',
       slug: 'bml-munjal-university',
-      emailDomains: ['bml.edu.in'],
+      emailDomains: ['bmu.edu.in', 'bml.edu.in'],
       logoUrl: 'https://illustrations.popsy.co/blue/work-from-home.svg',
       city: 'Gurugram',
       state: 'Haryana',

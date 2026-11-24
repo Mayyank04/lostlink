@@ -183,21 +183,36 @@ export const Navbar: React.FC = () => {
             {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
           </button>
 
-          {/* User Profile Avatar Link */}
-          <Link
-            href="/profile"
-            className="hidden sm:flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            title="Student Profile"
-          >
-            <div className="w-7 h-7 rounded-full bg-brandTeal-600 text-white flex items-center justify-center font-bold text-xs overflow-hidden">
-              {user?.avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
-              ) : (
-                user?.name?.charAt(0) || 'U'
-              )}
+          {/* User Profile Avatar / Authentication Links */}
+          {serverAuthenticated ? (
+            <Link
+              href="/profile"
+              className="hidden sm:flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              title="Student Profile"
+            >
+              <div className="w-7 h-7 rounded-full bg-brandTeal-600 text-white flex items-center justify-center font-bold text-xs overflow-hidden">
+                {user?.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
+                ) : (
+                  user?.name?.charAt(0) || 'U'
+                )}
+              </div>
+            </Link>
+          ) : (
+            <div className="hidden sm:flex items-center gap-1.5">
+              <Link href="/login">
+                <Button size="sm" variant="ghost" className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                  Sign In
+                </Button>
+              </Link>
+              <Link href="/register">
+                <Button size="sm" variant="outline" className="text-xs font-semibold border-brandTeal-600/40 text-brandTeal-700 dark:text-brandTeal-300 hover:bg-brandTeal-50">
+                  Register
+                </Button>
+              </Link>
             </div>
-          </Link>
+          )}
 
           {/* Mobile Menu Button */}
           <button
@@ -258,18 +273,33 @@ export const Navbar: React.FC = () => {
             ))}
           </div>
 
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-brandTeal-600 text-white flex items-center justify-center font-bold text-xs">
-                {user?.name?.charAt(0) || 'U'}
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-slate-900 dark:text-white">{user?.name}</p>
-                <p className="text-[10px] text-slate-500">{user?.email}</p>
-              </div>
+          {!serverAuthenticated ? (
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-2">
+              <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
+                <Button size="sm" variant="outline" className="w-full text-xs font-semibold">
+                  Student Sign In
+                </Button>
+              </Link>
+              <Link href="/register" onClick={() => setMobileMenuOpen(false)}>
+                <Button size="sm" variant="primary" className="w-full text-xs font-semibold">
+                  Register Account
+                </Button>
+              </Link>
             </div>
-            <RoleSwitcher />
-          </div>
+          ) : (
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-brandTeal-600 text-white flex items-center justify-center font-bold text-xs">
+                  {user?.name?.charAt(0) || 'U'}
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-slate-900 dark:text-white">{user?.name}</p>
+                  <p className="text-[10px] text-slate-500">{user?.email}</p>
+                </div>
+              </div>
+              <RoleSwitcher />
+            </div>
+          )}
         </div>
       )}
     </header>
